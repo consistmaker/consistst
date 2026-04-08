@@ -28,7 +28,7 @@ function Login() {
     } catch (err: any) {
       console.error("Login failed", err);
       if (err.code === 'auth/unauthorized-domain') {
-        setError("Domain belum diizinkan di Firebase Console. Tambahkan domain ini ke 'Authorized Domains'.");
+        setError(`Domain '${window.location.hostname}' belum diizinkan di Firebase Console. Tambahkan domain ini ke 'Authorized Domains' di setelan Authentication Firebase.`);
       } else if (err.code === 'auth/popup-blocked') {
         setError("Popup diblokir oleh browser. Izinkan popup atau buka aplikasi di tab baru.");
       } else {
