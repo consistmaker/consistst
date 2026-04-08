@@ -19,11 +19,21 @@ import {
 // --- Components ---
 
 function Login() {
+  const [error, setError] = useState<string | null>(null);
+
   const handleLogin = async () => {
+    setError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Login failed", error);
+    } catch (err: any) {
+      console.error("Login failed", err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Domain belum diizinkan di Firebase Console. Tambahkan domain ini ke 'Authorized Domains'.");
+      } else if (err.code === 'auth/popup-blocked') {
+        setError("Popup diblokir oleh browser. Izinkan popup atau buka aplikasi di tab baru.");
+      } else {
+        setError(err.message || "Gagal masuk. Silakan coba lagi.");
+      }
     }
   };
 
@@ -40,6 +50,16 @@ function Login() {
         <p style={{ color: 'var(--muted2)', fontSize: '14px', marginBottom: '32px', lineHeight: '1.6' }}>
           Masuk dengan akun Google untuk mensinkronkan data Anda di semua perangkat secara aman.
         </p>
+        
+        {error && (
+          <div style={{ background: '#ef444415', color: 'var(--red)', padding: '12px', borderRadius: '8px', fontSize: '12px', marginBottom: '20px', textAlign: 'left', border: '1px solid #ef444430' }}>
+            <strong>Error:</strong> {error}
+            <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.8 }}>
+              Tips: Klik tombol "Open in new tab" di pojok kanan atas preview jika popup tidak muncul.
+            </div>
+          </div>
+        )}
+
         <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={handleLogin}>
           <LogIn size={18} /> Masuk dengan Google
         </button>
