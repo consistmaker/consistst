@@ -655,44 +655,70 @@ export default function App() {
           await setDoc(userDocRef, { uid: user.uid, email: user.email, displayName: user.displayName, currentLadderStage: '1' });
           await seedUserData(user.uid);
         }
-
-        // Real-time Sync for all collections
-        const qIntentions = query(collection(db, 'intentions'), where('uid', '==', user.uid));
-        const unsubIntentions = onSnapshot(qIntentions, (snap) => {
-          store.setIntentions(snap.docs.map(d => d.data() as any));
-        }, (e) => handleFirestoreError(e, OperationType.LIST, 'intentions'));
-
-        const qBlocks = query(collection(db, 'dailyBlocks'), where('uid', '==', user.uid));
-        const unsubBlocks = onSnapshot(qBlocks, (snap) => {
-          store.setDailyBlocks(snap.docs.map(d => d.data() as any));
-        }, (e) => handleFirestoreError(e, OperationType.LIST, 'dailyBlocks'));
-
-        const qReviews = query(collection(db, 'weeklyReviews'), where('uid', '==', user.uid));
-        const unsubReviews = onSnapshot(qReviews, (snap) => {
-          store.setWeeklyReviews(snap.docs.map(d => d.data() as any));
-        }, (e) => handleFirestoreError(e, OperationType.LIST, 'weeklyReviews'));
-
-        const qReframes = query(collection(db, 'reframes'), where('uid', '==', user.uid));
-        const unsubReframes = onSnapshot(qReframes, (snap) => {
-          store.setReframes(snap.docs.map(d => d.data() as any));
-        }, (e) => handleFirestoreError(e, OperationType.LIST, 'reframes'));
-
-        const qTrackers = query(collection(db, 'trackers'), where('uid', '==', user.uid));
-        const unsubTrackers = onSnapshot(qTrackers, (snap) => {
-          store.setTrackers(snap.docs.map(d => d.data() as any));
-        }, (e) => handleFirestoreError(e, OperationType.LIST, 'trackers'));
-
-        return () => {
-          unsubIntentions();
-          unsubBlocks();
-          unsubReviews();
-          unsubReframes();
-          unsubTrackers();
-        };
       }
     });
     return () => unsubscribe();
   }, []);
+
+  // Separate effect for Firestore listeners to handle cleanup correctly
+  useEffect(() => {
+    if (!store.user) {
+      // Clear data when logged out
+      store.setIntentions([]);
+      store.setDailyBlocks([]);
+      store.setWeeklyReviews([]);
+      store.setReframes([]);
+      store.setTrackers([]);
+      return;
+    }
+
+    const user = store.user;
+
+    // Real-time Sync for all collections
+    const qIntentions = query(collection(db, 'intentions'), where('uid', '==', user.uid));
+    const unsubIntentions = onSnapshot(qIntentions, (snap) => {
+      store.setIntentions(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      // Only log if we are still logged in, otherwise it's an expected cleanup race condition
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'intentions');
+    });
+
+    const qBlocks = query(collection(db, 'dailyBlocks'), where('uid', '==', user.uid));
+    const unsubBlocks = onSnapshot(qBlocks, (snap) => {
+      store.setDailyBlocks(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'dailyBlocks');
+    });
+
+    const qReviews = query(collection(db, 'weeklyReviews'), where('uid', '==', user.uid));
+    const unsubReviews = onSnapshot(qReviews, (snap) => {
+      store.setWeeklyReviews(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'weeklyReviews');
+    });
+
+    const qReframes = query(collection(db, 'reframes'), where('uid', '==', user.uid));
+    const unsubReframes = onSnapshot(qReframes, (snap) => {
+      store.setReframes(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'reframes');
+    });
+
+    const qTrackers = query(collection(db, 'trackers'), where('uid', '==', user.uid));
+    const unsubTrackers = onSnapshot(qTrackers, (snap) => {
+      store.setTrackers(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'trackers');
+    });
+
+    return () => {
+      unsubIntentions();
+      unsubBlocks();
+      unsubReviews();
+      unsubReframes();
+      unsubTrackers();
+    };
+  }, [store.user]);
 
   if (!store.isAuthReady) {
     return <div className="wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>Memuat...</div>;
