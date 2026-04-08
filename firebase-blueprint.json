@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "currentLadderStage": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Intention": {
+      "title": "Intention",
+      "description": "Implementation Intentions (Jika X -> Maka Y)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "when": { "type": "string", "enum": ["PAGI", "SIANG", "SORE", "MALAM", "BURNOUT"] },
+        "trigger": { "type": "string" },
+        "response": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "when", "trigger", "response"]
+    },
+    "DailyBlock": {
+      "title": "DailyBlock",
+      "description": "Daily system time blocks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "char": { "type": "string" },
+        "time": { "type": "string" },
+        "name": { "type": "string" },
+        "tasks": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name"]
+    },
+    "WeeklyReview": {
+      "title": "WeeklyReview",
+      "description": "Weekly reflection and planning",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "q1": { "type": "string" },
+        "q2": { "type": "string" },
+        "q3": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "date"]
+    },
+    "Reframe": {
+      "title": "Reframe",
+      "description": "Mindset reframing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "old": { "type": "string" },
+        "new": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "old", "new"]
+    },
+    "Tracker": {
+      "title": "Tracker",
+      "description": "Habit and progress tracker",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "history": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/intentions/{intentionId}": {
+      "schema": "Intention",
+      "description": "User specific implementation intentions"
+    },
+    "/dailyBlocks/{blockId}": {
+      "schema": "DailyBlock",
+      "description": "User specific daily system blocks"
+    },
+    "/weeklyReviews/{reviewId}": {
+      "schema": "WeeklyReview",
+      "description": "User specific weekly reviews"
+    },
+    "/reframes/{reframeId}": {
+      "schema": "Reframe",
+      "description": "User specific mindset reframes"
+    },
+    "/trackers/{trackerId}": {
+      "schema": "Tracker",
+      "description": "User specific progress trackers"
+    }
+  }
+}

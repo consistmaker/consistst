@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { FirebaseUser } from './firebase';
 
 export interface Intention {
   id: string;
+  uid: string;
   when: string;
   trigger: string;
   response: string;
@@ -19,6 +21,7 @@ export interface LadderItem {
 
 export interface DailyBlock {
   id: string;
+  uid: string;
   char: string;
   time: string;
   name: string;
@@ -27,6 +30,7 @@ export interface DailyBlock {
 
 export interface WeeklyReview {
   id: string;
+  uid: string;
   q1: string;
   q2: string;
   q3: string;
@@ -35,17 +39,21 @@ export interface WeeklyReview {
 
 export interface Reframe {
   id: string;
+  uid: string;
   old: string;
   new: string;
 }
 
 export interface Tracker {
   id: string;
+  uid: string;
   name: string;
   history: string[]; // array of ISO date strings (YYYY-MM-DD)
 }
 
 interface AppState {
+  user: FirebaseUser | null;
+  isAuthReady: boolean;
   intentions: Intention[];
   ladder: LadderItem[];
   currentLadderStage: string;
@@ -54,18 +62,27 @@ interface AppState {
   reframes: Reframe[];
   trackers: Tracker[];
 
-  addIntention: (intention: Omit<Intention, 'id'>) => void;
+  setUser: (user: FirebaseUser | null) => void;
+  setAuthReady: (ready: boolean) => void;
+  
+  setIntentions: (intentions: Intention[]) => void;
+  setDailyBlocks: (blocks: DailyBlock[]) => void;
+  setWeeklyReviews: (reviews: WeeklyReview[]) => void;
+  setReframes: (reframes: Reframe[]) => void;
+  setTrackers: (trackers: Tracker[]) => void;
+
+  addIntention: (intention: Omit<Intention, 'id' | 'uid'>) => void;
   deleteIntention: (id: string) => void;
   
   setCurrentLadderStage: (id: string) => void;
   
-  addDailyBlock: (block: Omit<DailyBlock, 'id'>) => void;
+  addDailyBlock: (block: Omit<DailyBlock, 'id' | 'uid'>) => void;
   deleteDailyBlock: (id: string) => void;
   
-  addWeeklyReview: (review: Omit<WeeklyReview, 'id' | 'date'>) => void;
+  addWeeklyReview: (review: Omit<WeeklyReview, 'id' | 'uid' | 'date'>) => void;
   deleteWeeklyReview: (id: string) => void;
   
-  addReframe: (reframe: Omit<Reframe, 'id'>) => void;
+  addReframe: (reframe: Omit<Reframe, 'id' | 'uid'>) => void;
   deleteReframe: (id: string) => void;
   
   addTracker: (name: string) => void;
@@ -75,83 +92,74 @@ interface AppState {
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
-      intentions: [
-        { id: '1', when: 'PAGI', trigger: 'Bangun tidur', response: 'Minum air & stretching 5 menit', note: 'Koala mode: Stabil' },
-        { id: '2', when: 'BURNOUT', trigger: 'Kehilangan fokus > 15 menit', response: 'Tutup laptop, jalan kaki 10 menit', note: 'Elang mode: Reset perspektif' },
-      ],
+    (set, get) => ({
+      user: null,
+      isAuthReady: false,
+      intentions: [],
       ladder: [
-        { id: '1', stageNum: '01', stageName: 'UMR / Entry Level', skill: 'Generalist, Task Execution', income: 'Rp 5M - 10M' },
-        { id: '2', stageNum: '02', stageName: 'Specialist', skill: 'Deep Technical Skill, Problem Solving', income: 'Rp 15M - 25M' },
-        { id: '3', stageNum: '03', stageName: 'Managerial / Expert', skill: 'Strategy, People, High-Value Output', income: 'Rp 30M - 50M' },
-        { id: '4', stageNum: '04', stageName: 'Top 5% / Business Owner', skill: 'Capital Allocation, Systems, Vision', income: 'Rp 100M+' },
+        { id: '1', stageNum: 'Tahap 1', stageName: 'Sekarang', skill: 'Gaji UMR + skill tunggal. Pengeluaran melebihi pemasukan. Belum ada income stream kedua yang aktif.', income: 'UMR' },
+        { id: '2', stageNum: 'Tahap 2', stageName: 'Bulan 1–3', skill: 'Upload 10–20 video YouTube. Workflow otomatis terbentuk. Mulai dapat data: video mana yang perform. Belum ada income tapi sistem sudah berjalan.', income: '$0–50/mo' },
+        { id: '3', stageNum: 'Tahap 3', stageName: 'Bulan 3–8', skill: 'YPP aktif. Income YT mulai masuk. Skill: musik AI + video editing + SEO YouTube terbentuk. Deliberate practice: perbaiki 1 hal per video.', income: '$100–500/mo' },
+        { id: '4', stageNum: 'Tahap 4', stageName: 'Bulan 8–18', skill: 'YT stabil. Buka kembali microstock dengan strategi baru. Mulai Framer/Elementor template. Tiga income stream aktif bersamaan.', income: '$500–2k/mo' },
+        { id: '5', stageNum: 'Tahap 5', stageName: 'Bulan 18–36', skill: 'Compounding konten + template sales + web design service. Skill set rare + valuable terbentuk. Income bisa scale tanpa linear tambah jam kerja.', income: '$2k–10k/mo' },
       ],
       currentLadderStage: '1',
-      dailyBlocks: [
-        { id: '1', char: '🌅', time: '05:00 - 08:00', name: 'Deep Work Block', tasks: ['Prioritas #1', 'No Distraction', 'High Cognitive Load'] },
-        { id: '2', char: '☕', time: '09:00 - 12:00', name: 'Collaboration Block', tasks: ['Meetings', 'Emails', 'Team Sync'] },
-      ],
+      dailyBlocks: [],
       weeklyReviews: [],
-      reframes: [
-        { id: '1', old: 'Saya tidak punya waktu', new: 'Itu bukan prioritas saya saat ini' },
-        { id: '2', old: 'Ini terlalu sulit', new: 'Ini membutuhkan pendekatan yang berbeda' },
-      ],
-      trackers: [
-        { id: '1', name: 'Deep Work 4 Jam', history: [] },
-        { id: '2', name: 'Olahraga', history: [] },
-      ],
+      reframes: [],
+      trackers: [],
 
-      addIntention: (intention) => set((state) => ({
-        intentions: [...state.intentions, { ...intention, id: Math.random().toString(36).substring(7) }]
-      })),
-      deleteIntention: (id) => set((state) => ({
-        intentions: state.intentions.filter((i) => i.id !== id)
-      })),
+      setUser: (user) => set({ user }),
+      setAuthReady: (isAuthReady) => set({ isAuthReady }),
+
+      setIntentions: (intentions) => set({ intentions }),
+      setDailyBlocks: (dailyBlocks) => set({ dailyBlocks }),
+      setWeeklyReviews: (weeklyReviews) => set({ weeklyReviews }),
+      setReframes: (reframes) => set({ reframes }),
+      setTrackers: (trackers) => set({ trackers }),
+
+      addIntention: (intention) => {
+        const { user } = get();
+        if (!user) return;
+        // This will be handled by Firestore sync in App.tsx
+      },
+      deleteIntention: (id) => {
+        // This will be handled by Firestore sync in App.tsx
+      },
 
       setCurrentLadderStage: (id) => set({ currentLadderStage: id }),
 
-      addDailyBlock: (block) => set((state) => ({
-        dailyBlocks: [...state.dailyBlocks, { ...block, id: Math.random().toString(36).substring(7) }]
-      })),
-      deleteDailyBlock: (id) => set((state) => ({
-        dailyBlocks: state.dailyBlocks.filter((b) => b.id !== id)
-      })),
+      addDailyBlock: (block) => {
+        const { user } = get();
+        if (!user) return;
+      },
+      deleteDailyBlock: (id) => {},
 
-      addWeeklyReview: (review) => set((state) => ({
-        weeklyReviews: [{ ...review, id: Math.random().toString(36).substring(7), date: new Date().toISOString() }, ...state.weeklyReviews]
-      })),
-      deleteWeeklyReview: (id) => set((state) => ({
-        weeklyReviews: state.weeklyReviews.filter((r) => r.id !== id)
-      })),
+      addWeeklyReview: (review) => {
+        const { user } = get();
+        if (!user) return;
+      },
+      deleteWeeklyReview: (id) => {},
 
-      addReframe: (reframe) => set((state) => ({
-        reframes: [...state.reframes, { ...reframe, id: Math.random().toString(36).substring(7) }]
-      })),
-      deleteReframe: (id) => set((state) => ({
-        reframes: state.reframes.filter((r) => r.id !== id)
-      })),
+      addReframe: (reframe) => {
+        const { user } = get();
+        if (!user) return;
+      },
+      deleteReframe: (id) => {},
 
-      addTracker: (name) => set((state) => ({
-        trackers: [...state.trackers, { id: Math.random().toString(36).substring(7), name, history: [] }]
-      })),
-      deleteTracker: (id) => set((state) => ({
-        trackers: state.trackers.filter((t) => t.id !== id)
-      })),
-      toggleTracker: (id, date) => set((state) => ({
-        trackers: state.trackers.map((t) => {
-          if (t.id === id) {
-            const hasDate = t.history.includes(date);
-            return {
-              ...t,
-              history: hasDate ? t.history.filter((d) => d !== date) : [...t.history, date]
-            };
-          }
-          return t;
-        })
-      })),
+      addTracker: (name) => {
+        const { user } = get();
+        if (!user) return;
+      },
+      deleteTracker: (id) => {},
+      toggleTracker: (id, date) => {},
     }),
     {
       name: 'life-os-storage',
+      partialize: (state) => ({ 
+        currentLadderStage: state.currentLadderStage 
+      }), // Only persist ladder stage locally for now
     }
   )
 );
+

@@ -1,0 +1,146 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string (optional)
+    //   - currentLadderStage: string (optional)
+    //
+    // Collection: intentions
+    // Document ID: {intentionId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - when: string (required)
+    //   - trigger: string (required)
+    //   - response: string (required)
+    //   - note: string (optional)
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: dailyBlocks
+    // Document ID: {blockId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - char: string
+    //   - time: string
+    //   - name: string (required)
+    //   - tasks: list (required)
+    //
+    // Collection: weeklyReviews
+    // Document ID: {reviewId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - q1: string
+    //   - q2: string
+    //   - q3: string
+    //   - date: timestamp (required)
+    //
+    // Collection: reframes
+    // Document ID: {reframeId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - old: string (required)
+    //   - new: string (required)
+    //
+    // Collection: trackers
+    // Document ID: {trackerId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - name: string (required)
+    //   - history: list (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isRequestOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.uid;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && 
+                      isValidEmail(request.resource.data.email) &&
+                      hasOnlyAllowedFields(['uid', 'email', 'displayName', 'currentLadderStage']);
+      allow update: if isOwner(userId) && 
+                      hasOnlyAllowedFields(['uid', 'email', 'displayName', 'currentLadderStage']);
+    }
+
+    match /intentions/{intentionId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && 
+                      request.resource.data.trigger is string && request.resource.data.trigger.size() < 1000 &&
+                      request.resource.data.response is string && request.resource.data.response.size() < 1000;
+      allow update: if isDocOwner() && isRequestOwner() &&
+                      request.resource.data.trigger is string && request.resource.data.trigger.size() < 1000 &&
+                      request.resource.data.response is string && request.resource.data.response.size() < 1000;
+      allow delete: if isDocOwner();
+    }
+
+    match /dailyBlocks/{blockId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.tasks is list;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.tasks is list;
+      allow delete: if isDocOwner();
+    }
+
+    match /weeklyReviews/{reviewId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner();
+      allow update: if isDocOwner() && isRequestOwner();
+      allow delete: if isDocOwner();
+    }
+
+    match /reframes/{reframeId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner();
+      allow update: if isDocOwner() && isRequestOwner();
+      allow delete: if isDocOwner();
+    }
+
+    match /trackers/{trackerId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.history is list;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.history is list;
+      allow delete: if isDocOwner();
+    }
+  }
+}
