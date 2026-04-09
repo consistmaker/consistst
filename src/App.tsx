@@ -221,7 +221,7 @@ function PinnedActions() {
         )}
       </AnimatePresence>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-4">
         <div className="card" style={{ background: 'rgba(245, 158, 11, 0.03)', border: '1px dashed rgba(245, 158, 11, 0.2)' }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--gold)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📌 Hari Ini</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -503,8 +503,8 @@ function Notepad() {
               onChange={e => setContent(e.target.value)}
               style={{ background: selectedColor, border: '1px solid var(--border)' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {colors.map(c => (
                   <div 
                     key={c} 
@@ -578,28 +578,21 @@ function Navbar() {
   if (!user) return null;
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', alignItems: 'center' }}>
-      <button 
-        className={`btn btn-sm ${store.isFocusMode ? 'btn-primary' : ''}`} 
-        onClick={() => store.setFocusMode(!store.isFocusMode)}
-      >
-        {store.isFocusMode ? <EyeOff size={14} /> : <Eye size={14} />}
-        {store.isFocusMode ? 'Matikan Focus Mode' : 'Aktifkan Focus Mode'}
-      </button>
-
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted2)' }}>
           <UserIcon size={14} />
           <span>{user.email}</span>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-sm" onClick={handleSeed} style={{ background: 'var(--s2)', border: '1px solid var(--border)' }}>
-            <RefreshCw size={14} /> Masukkan Default
-          </button>
-          <button className="btn btn-sm" onClick={handleLogout}>
-            <LogOut size={14} /> Keluar
-          </button>
-        </div>
+      </div>
+      
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button className="btn btn-sm" onClick={handleSeed} style={{ background: 'var(--s2)', border: '1px solid var(--border)' }}>
+          <RefreshCw size={14} /> Masukkan Default
+        </button>
+        <button className="btn btn-sm" onClick={handleLogout}>
+          <LogOut size={14} /> Keluar
+        </button>
       </div>
     </div>
   );
@@ -760,75 +753,6 @@ function PomodoroTimer() {
   );
 }
 
-function FocusGoalTracker() {
-  const store = useStore();
-  const [isEditing, setIsEditing] = useState(false);
-  const [newGoal, setNewGoal] = useState(120);
-  
-  const goal = store.focusGoals[0] || { dailyMinutes: 120 };
-  const sessions = store.focusSessions;
-  
-  const today = new Date().toISOString().split('T')[0];
-  const todayMinutes = sessions
-    .filter(s => {
-      const d = s.createdAt.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
-      return d.toISOString().split('T')[0] === today && s.type === 'work';
-    })
-    .reduce((acc, s) => acc + s.duration, 0);
-
-  const progress = Math.min((todayMinutes / goal.dailyMinutes) * 100, 100);
-
-  const handleUpdateGoal = async () => {
-    if (!store.user) return;
-    const goalId = ('id' in goal) ? goal.id : `${store.user.uid}_goal`;
-    const path = 'focusGoals';
-    try {
-      await setDoc(doc(db, path, goalId), {
-        id: goalId,
-        uid: store.user.uid,
-        dailyMinutes: newGoal
-      });
-      setIsEditing(false);
-    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
-  };
-
-  return (
-    <div className="goal-card">
-      <div className="goal-header">
-        <div className="goal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Target size={16} color="var(--elang)" />
-          Target Deep Work
-        </div>
-        {isEditing ? (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input 
-              type="number" 
-              className="input-field" 
-              style={{ width: '60px', marginBottom: 0, padding: '4px 8px' }} 
-              value={newGoal} 
-              onChange={e => setNewGoal(parseInt(e.target.value) || 0)}
-            />
-            <button className="btn btn-sm btn-primary" onClick={handleUpdateGoal}><Check size={14}/></button>
-            <button className="btn btn-sm" onClick={() => setIsEditing(false)}><X size={14}/></button>
-          </div>
-        ) : (
-          <button className="btn btn-sm" onClick={() => { setIsEditing(true); setNewGoal(goal.dailyMinutes); }}>
-            <Edit2 size={12} /> Edit
-          </button>
-        )}
-      </div>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px' }}>
-        <span style={{ color: 'var(--muted2)' }}>{todayMinutes} / {goal.dailyMinutes} menit</span>
-        <span style={{ fontWeight: 600, color: 'var(--elang)' }}>{progress.toFixed(0)}%</span>
-      </div>
-      
-      <div className="goal-progress-bg">
-        <div className="goal-progress-bar" style={{ width: `${progress}%` }}></div>
-      </div>
-    </div>
-  );
-}
 
 function BlocklistManager() {
   const store = useStore();
@@ -923,7 +847,7 @@ function FocusStats() {
         <div className="sec-title">Analisis Fokus</div>
       </div>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+      <div className="stats-grid">
         <div className="card" style={{ margin: 0, padding: '16px' }}>
           <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Total Deep Work</div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--elang)' }}>{totalMinutes} <span style={{ fontSize: '12px', fontWeight: 400 }}>menit</span></div>
@@ -991,7 +915,7 @@ function DailyRewards() {
       </div>
       
       <div className="card" style={{ padding: '16px' }}>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <div className="reward-input-group">
           <input 
             className="input-field" 
             style={{ marginBottom: 0 }} 
@@ -1053,25 +977,6 @@ function DailyRewards() {
   );
 }
 
-function FocusOverlay() {
-  const store = useStore();
-  if (!store.isFocusMode) return null;
-
-  return (
-    <div className="focus-overlay">
-      <div className="focus-timer-large">
-        <div className="timer-label">Deep Work Session Active</div>
-        <div className="timer-digits">
-          <Timer size={120} color="var(--elang)" style={{ opacity: 0.2, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: -1 }} />
-          Focus
-        </div>
-        <button className="btn btn-primary" onClick={() => store.setFocusMode(false)}>
-          Selesaikan Sesi
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function Hero() {
   const store = useStore();
@@ -2426,14 +2331,6 @@ export default function App() {
   }, [store.user]);
 
   useEffect(() => {
-    if (store.isFocusMode) {
-      document.body.classList.add('focus-mode');
-    } else {
-      document.body.classList.remove('focus-mode');
-    }
-  }, [store.isFocusMode]);
-
-  useEffect(() => {
     if (store.themeSettings) {
       const root = document.documentElement;
       root.style.setProperty('--primary', store.themeSettings.accentColor);
@@ -2452,12 +2349,11 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <FocusOverlay />
-      <div className={`wrap ${store.isFocusMode ? 'focus-active' : ''}`}>
+      <div className="wrap">
         <Navbar />
         <Hero />
         
-        <div style={{ marginBottom: '32px', display: 'flex', gap: '12px' }}>
+        <div style={{ marginBottom: '32px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <button 
             className={`btn ${!showAnalytics ? 'btn-primary' : ''}`} 
             onClick={() => setShowAnalytics(false)}
@@ -2507,7 +2403,6 @@ export default function App() {
                 <BlocklistManager />
               </div>
               <div className="sticky-side">
-                <FocusGoalTracker />
                 <FocusStats />
                 <DailyRewards />
                 <MasterHistory />

@@ -60,6 +60,14 @@ body::before {
   align-items: start;
 }
 
+.sticky-side {
+  position: sticky;
+  top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
 @media (max-width: 1024px) {
   .main-grid {
     grid-template-columns: 1fr;
@@ -808,3 +816,28 @@ body::before {
 
 .p-4 { padding: 16px; }
 .mt-6 { margin-top: 24px; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.reward-input-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .reward-input-group {
+    flex-direction: column;
+  }
+  .reward-input-group button {
+    width: 100%;
+    justify-content: center;
+  }
+}
