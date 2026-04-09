@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from './store';
 import { 
   Plus, Trash2, Microscope, Zap, TrendingUp, RefreshCw, ClipboardList, 
-  Repeat, BarChart3, CheckCircle2, X, LogIn, LogOut, User as UserIcon 
+  Repeat, BarChart3, CheckCircle2, X, LogIn, LogOut, User as UserIcon,
+  CheckSquare, Square
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -577,6 +578,209 @@ function MindsetReframe() {
   );
 }
 
+function DailyAudit() {
+  const store = useStore();
+  const today = new Date().toISOString().split('T')[0];
+  const stats = store.dailyStats.find(s => s.date === today);
+
+  const mainTasks = store.dailyBlocks.flatMap(b => b.tasks.map((t, i) => ({ id: `${b.id}:${i}`, text: t, blockName: b.name })));
+  const quickTasks = store.quickTasks;
+
+  const updateStats = async (type: 'main' | 'quick', count: number, totalMain?: number) => {
+    if (!store.user) return;
+    const id = stats?.id || `${store.user.uid}_${today}`;
+    const path = `dailyStats/${id}`;
+    const data = {
+      id,
+      uid: store.user.uid,
+      date: today,
+      mainCompleted: type === 'main' ? count : (stats?.mainCompleted || 0),
+      mainTotal: totalMain !== undefined ? totalMain : (stats?.mainTotal || mainTasks.length),
+      quickCompleted: type === 'quick' ? count : (stats?.quickCompleted || 0)
+    };
+    try {
+      await setDoc(doc(db, 'dailyStats', id), data, { merge: true });
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+  };
+
+  const completedQuickCount = quickTasks.filter(t => t.completed).length;
+  
+  // For main tasks, we need a way to track which ones are done today.
+  // Since DailyBlock is a template, we'll store the completed IDs in DailyStats.
+  // I'll add a 'completedMainIds' field to DailyStats in the actual Firestore doc (even if not in interface yet, it's fine for JS)
+  const completedMainIds = (stats as any)?.completedMainIds || [];
+
+  const toggleMainTask = async (taskId: string) => {
+    const newIds = completedMainIds.includes(taskId) 
+      ? completedMainIds.filter((id: string) => id !== taskId)
+      : [...completedMainIds, taskId];
+    
+    if (!store.user) return;
+    const id = stats?.id || `${store.user.uid}_${today}`;
+    try {
+      await setDoc(doc(db, 'dailyStats', id), { 
+        id, 
+        uid: store.user.uid, 
+        date: today, 
+        completedMainIds: newIds,
+        mainCompleted: newIds.length,
+        mainTotal: mainTasks.length,
+        quickCompleted: completedQuickCount
+      }, { merge: true });
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, `dailyStats/${id}`); }
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#8b5cf615' }}><BarChart3 size={16} color="var(--primary)" /></div>
+        <div className="sec-title">Audit Produktivitas Harian</div>
+        <div className="sec-ref">Deteksi: Apakah Anda mengerjakan "Tugas Asli" atau hanya "Tugas Tambahan"?</div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="card" style={{ background: 'var(--s1)' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Zap size={14} color="var(--gold)" /> Tugas Utama (Sistem)
+            <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--muted2)' }}>{completedMainIds.length}/{mainTasks.length}</span>
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {mainTasks.map(task => (
+              <div key={task.id} onClick={() => toggleMainTask(task.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--s2)', borderRadius: '8px', cursor: 'pointer', opacity: completedMainIds.includes(task.id) ? 0.6 : 1 }}>
+                {completedMainIds.includes(task.id) ? <CheckCircle2 size={16} color="var(--green)" /> : <Square size={16} color="var(--muted)" />}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '13px', textDecoration: completedMainIds.includes(task.id) ? 'line-through' : 'none' }}>{task.text}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--muted2)' }}>{task.blockName}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card" style={{ background: 'var(--s1)' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ClipboardList size={14} color="var(--red)" /> Tugas Tambahan (Quick)
+            <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--muted2)' }}>{completedQuickCount} Selesai</span>
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {quickTasks.filter(t => !t.completed).slice(0, 5).map(task => (
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--s2)', borderRadius: '8px', opacity: 0.8 }}>
+                <Square size={16} color="var(--muted)" />
+                <span style={{ fontSize: '13px' }}>{task.text}</span>
+              </div>
+            ))}
+            {quickTasks.filter(t => t.completed).slice(0, 3).map(task => (
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--s2)', borderRadius: '8px', opacity: 0.4 }}>
+                <CheckCircle2 size={16} color="var(--green)" />
+                <span style={{ fontSize: '13px', textDecoration: 'line-through' }}>{task.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 p-4" style={{ background: 'var(--s2)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: 'var(--muted2)' }}>ANALISIS MOMENTUM</div>
+        {completedMainIds.length === 0 && completedQuickCount > 0 ? (
+          <div style={{ color: 'var(--red)', fontSize: '13px' }}>⚠️ <strong>Bahaya:</strong> Anda sibuk mengerjakan tugas tambahan tapi tugas utama (sistem) belum disentuh. Ini adalah bentuk prokrastinasi produktif.</div>
+        ) : completedMainIds.length > 0 && completedMainIds.length === mainTasks.length ? (
+          <div style={{ color: 'var(--green)', fontSize: '13px' }}>✅ <strong>Luar Biasa:</strong> Sistem harian selesai 100%. Anda berada di jalur Elang.</div>
+        ) : (
+          <div style={{ color: 'var(--muted2)', fontSize: '13px' }}>Selesaikan tugas utama di "Daily System" untuk menjaga momentum jangka panjang.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuickTasks() {
+  const store = useStore();
+  const [adding, setAdding] = useState(false);
+  const [text, setText] = useState('');
+
+  const handleAdd = async () => {
+    if (text && store.user) {
+      const id = Math.random().toString(36).substring(7);
+      const path = 'quickTasks';
+      try {
+        await setDoc(doc(db, path, id), { id, uid: store.user.uid, text, completed: false, createdAt: serverTimestamp() });
+        setText('');
+        setAdding(false);
+      } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+    }
+  };
+
+  const toggleTask = async (task: any) => {
+    const path = `quickTasks/${task.id}`;
+    try {
+      await updateDoc(doc(db, 'quickTasks', task.id), { completed: !task.completed });
+      
+      // Update DailyStats count
+      if (store.user) {
+        const today = new Date().toISOString().split('T')[0];
+        const stats = store.dailyStats.find(s => s.date === today);
+        const id = stats?.id || `${store.user.uid}_${today}`;
+        const newQuickCount = !task.completed 
+          ? (stats?.quickCompleted || 0) + 1 
+          : Math.max(0, (stats?.quickCompleted || 0) - 1);
+        
+        await setDoc(doc(db, 'dailyStats', id), { 
+          quickCompleted: newQuickCount 
+        }, { merge: true });
+      }
+    } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
+  };
+
+  const handleDelete = async (id: string) => {
+    const path = 'quickTasks';
+    try { await deleteDoc(doc(db, path, id)); }
+    catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#ef444415' }}><CheckSquare size={16} color="var(--red)" /></div>
+        <div className="sec-title">
+          <span>Tugas Cepat (Quick Tasks)</span>
+          <button className="btn btn-sm" onClick={() => setAdding(!adding)}>
+            {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Tambah'}
+          </button>
+        </div>
+        <div className="sec-ref">Urgent & Penting — Jangan Sampai Lupa</div>
+      </div>
+
+      <AnimatePresence>
+        {adding && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card mb-4 flex-row">
+            <input className="input-field" style={{ marginBottom: 0 }} placeholder="Tulis tugas baru..." value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdd()} />
+            <button className="btn btn-primary" onClick={handleAdd}>Simpan</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <AnimatePresence initial={false}>
+          {store.quickTasks.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map((task) => (
+            <motion.div key={task.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', opacity: task.completed ? 0.6 : 1 }}>
+              <button onClick={() => toggleTask(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: task.completed ? 'var(--green)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
+                {task.completed ? <CheckCircle2 size={20} /> : <Square size={20} />}
+              </button>
+              <span style={{ flex: 1, textDecoration: task.completed ? 'line-through' : 'none', fontSize: '14px' }}>{task.text}</span>
+              <button className="btn btn-danger" style={{ padding: '6px' }} onClick={() => handleDelete(task.id)}><Trash2 size={14}/></button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {store.quickTasks.length === 0 && !adding && (
+          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--muted2)', fontSize: '13px', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+            Tidak ada tugas mendesak. Klik "+" untuk menambah.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Main App ---
 
 async function seedUserData(uid: string) {
@@ -615,6 +819,12 @@ async function seedUserData(uid: string) {
     }
   ];
 
+  // Quick Tasks
+  const tasks = [
+    { text: 'Beli paket data / bayar internet', completed: false },
+    { text: 'Cek email dari YouTube / Microstock', completed: false }
+  ];
+
   for (const item of intentions) {
     const id = Math.random().toString(36).substring(7);
     await setDoc(doc(db, 'intentions', id), { ...item, id, uid, createdAt: serverTimestamp() });
@@ -635,6 +845,23 @@ async function seedUserData(uid: string) {
     const id = Math.random().toString(36).substring(7);
     await setDoc(doc(db, 'weeklyReviews', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
+  for (const item of tasks) {
+    const id = Math.random().toString(36).substring(7);
+    await setDoc(doc(db, 'quickTasks', id), { ...item, id, uid, createdAt: serverTimestamp() });
+  }
+
+  // Initial Daily Stats
+  const today = new Date().toISOString().split('T')[0];
+  const statId = `${uid}_${today}`;
+  await setDoc(doc(db, 'dailyStats', statId), {
+    id: statId,
+    uid,
+    date: today,
+    mainCompleted: 0,
+    mainTotal: 9, // 3 blocks * 3 tasks approx
+    quickCompleted: 0,
+    completedMainIds: []
+  });
 }
 
 export default function App() {
@@ -711,12 +938,28 @@ export default function App() {
       if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'trackers');
     });
 
+    const qQuickTasks = query(collection(db, 'quickTasks'), where('uid', '==', user.uid));
+    const unsubQuickTasks = onSnapshot(qQuickTasks, (snap) => {
+      store.setQuickTasks(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'quickTasks');
+    });
+
+    const qDailyStats = query(collection(db, 'dailyStats'), where('uid', '==', user.uid));
+    const unsubDailyStats = onSnapshot(qDailyStats, (snap) => {
+      store.setDailyStats(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'dailyStats');
+    });
+
     return () => {
       unsubIntentions();
       unsubBlocks();
       unsubReviews();
       unsubReframes();
       unsubTrackers();
+      unsubQuickTasks();
+      unsubDailyStats();
     };
   }, [store.user]);
 
@@ -735,6 +978,8 @@ export default function App() {
       <ResearchBase />
       <ImplementationIntentions />
       <IncomeLadder />
+      <DailyAudit />
+      <QuickTasks />
       <DailySystem />
       <ProgressTracker />
       <WeeklyReview />

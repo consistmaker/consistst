@@ -81,6 +81,33 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "name"]
+    },
+    "QuickTask": {
+      "title": "QuickTask",
+      "description": "Urgent tasks or to-dos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "text": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "text", "completed"]
+    },
+    "DailyStats": {
+      "title": "DailyStats",
+      "description": "Daily productivity statistics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "date": { "type": "string" },
+        "mainCompleted": { "type": "number" },
+        "mainTotal": { "type": "number" },
+        "quickCompleted": { "type": "number" }
+      },
+      "required": ["uid", "date"]
     }
   },
   "firestore": {
@@ -107,6 +134,14 @@
     "/trackers/{trackerId}": {
       "schema": "Tracker",
       "description": "User specific progress trackers"
+    },
+    "/quickTasks/{taskId}": {
+      "schema": "QuickTask",
+      "description": "User specific quick tasks"
+    },
+    "/dailyStats/{statId}": {
+      "schema": "DailyStats",
+      "description": "User specific daily productivity stats"
     }
   }
 }

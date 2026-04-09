@@ -51,6 +51,23 @@ export interface Tracker {
   history: string[]; // array of ISO date strings (YYYY-MM-DD)
 }
 
+export interface QuickTask {
+  id: string;
+  uid: string;
+  text: string;
+  completed: boolean;
+  createdAt?: any;
+}
+
+export interface DailyStats {
+  id: string;
+  uid: string;
+  date: string; // YYYY-MM-DD
+  mainCompleted: number;
+  mainTotal: number;
+  quickCompleted: number;
+}
+
 interface AppState {
   user: FirebaseUser | null;
   isAuthReady: boolean;
@@ -61,6 +78,8 @@ interface AppState {
   weeklyReviews: WeeklyReview[];
   reframes: Reframe[];
   trackers: Tracker[];
+  quickTasks: QuickTask[];
+  dailyStats: DailyStats[];
 
   setUser: (user: FirebaseUser | null) => void;
   setAuthReady: (ready: boolean) => void;
@@ -70,6 +89,8 @@ interface AppState {
   setWeeklyReviews: (reviews: WeeklyReview[]) => void;
   setReframes: (reframes: Reframe[]) => void;
   setTrackers: (trackers: Tracker[]) => void;
+  setQuickTasks: (tasks: QuickTask[]) => void;
+  setDailyStats: (stats: DailyStats[]) => void;
 
   addIntention: (intention: Omit<Intention, 'id' | 'uid'>) => void;
   deleteIntention: (id: string) => void;
@@ -108,6 +129,8 @@ export const useStore = create<AppState>()(
       weeklyReviews: [],
       reframes: [],
       trackers: [],
+      quickTasks: [],
+      dailyStats: [],
 
       setUser: (user) => set({ user }),
       setAuthReady: (isAuthReady) => set({ isAuthReady }),
@@ -117,6 +140,8 @@ export const useStore = create<AppState>()(
       setWeeklyReviews: (weeklyReviews) => set({ weeklyReviews }),
       setReframes: (reframes) => set({ reframes }),
       setTrackers: (trackers) => set({ trackers }),
+      setQuickTasks: (quickTasks) => set({ quickTasks }),
+      setDailyStats: (dailyStats) => set({ dailyStats }),
 
       addIntention: (intention) => {
         const { user } = get();

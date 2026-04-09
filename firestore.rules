@@ -61,6 +61,25 @@ service cloud.firestore {
     //   - name: string (required)
     //   - history: list (required)
     //
+    // Collection: quickTasks
+    // Document ID: {taskId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - text: string (required)
+    //   - completed: bool (required)
+    //   - createdAt: timestamp
+    //
+    // Collection: dailyStats
+    // Document ID: {statId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - date: string (required, YYYY-MM-DD)
+    //   - mainCompleted: number
+    //   - mainTotal: number
+    //   - quickCompleted: number
+    //
     // ===============================================================
 
     // ===============================================================
@@ -140,6 +159,20 @@ service cloud.firestore {
       allow read: if isDocOwner();
       allow create: if isRequestOwner() && request.resource.data.history is list;
       allow update: if isDocOwner() && isRequestOwner() && request.resource.data.history is list;
+      allow delete: if isDocOwner();
+    }
+
+    match /quickTasks/{taskId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.text is string;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.text is string;
+      allow delete: if isDocOwner();
+    }
+
+    match /dailyStats/{statId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.date is string;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.date is string;
       allow delete: if isDocOwner();
     }
   }
