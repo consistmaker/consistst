@@ -570,9 +570,8 @@ function Navbar() {
   };
 
   const handleSeed = async () => {
-    if (user && confirm("Masukkan data default ke sistem Anda? Ini akan menambahkan item baru.")) {
+    if (user) {
       await seedUserData(user.uid);
-      alert("Data default berhasil dimasukkan!");
     }
   };
 
@@ -1400,7 +1399,9 @@ function IncomeLadder() {
       <div className="projection">
         {store.ladder.map((item) => {
           const isCurrent = store.currentLadderStage === item.id;
-          const isPast = parseInt(item.id) < parseInt(store.currentLadderStage);
+          const currentIdx = store.ladder.findIndex(l => l.id === store.currentLadderStage);
+          const itemIdx = store.ladder.findIndex(l => l.id === item.id);
+          const isPast = itemIdx < currentIdx;
           
           return (
             <motion.div 
