@@ -114,6 +114,22 @@ export interface Note {
   createdAt: any;
 }
 
+export interface MatrixItem {
+  id: string;
+  uid: string;
+  quadrant: 'q1' | 'q2' | 'q3' | 'q4';
+  text: string;
+}
+
+export interface TriggerStep {
+  id: string;
+  uid: string;
+  num: string;
+  title: string;
+  content: string;
+  ii?: string;
+}
+
 export interface ThemeSettings {
   uid: string;
   accentColor: string;
@@ -138,6 +154,8 @@ interface AppState {
   rewards: Reward[];
   pinnedActions: PinnedAction[];
   notes: Note[];
+  matrixItems: MatrixItem[];
+  triggerSteps: TriggerStep[];
   themeSettings: ThemeSettings | null;
   isFocusMode: boolean;
 
@@ -157,6 +175,8 @@ interface AppState {
   setRewards: (rewards: Reward[]) => void;
   setPinnedActions: (actions: PinnedAction[]) => void;
   setNotes: (notes: Note[]) => void;
+  setMatrixItems: (items: MatrixItem[]) => void;
+  setTriggerSteps: (steps: TriggerStep[]) => void;
   setThemeSettings: (settings: ThemeSettings | null) => void;
   setFocusMode: (enabled: boolean) => void;
 
@@ -186,11 +206,11 @@ export const useStore = create<AppState>()(
       isAuthReady: false,
       intentions: [],
       ladder: [
-        { id: '1', stageNum: 'Tahap 1', stageName: 'Sekarang', skill: 'Gaji UMR + skill tunggal. Pengeluaran melebihi pemasukan. Belum ada income stream kedua yang aktif.', income: 'UMR' },
-        { id: '2', stageNum: 'Tahap 2', stageName: 'Bulan 1–3', skill: 'Upload 10–20 video YouTube. Workflow otomatis terbentuk. Mulai dapat data: video mana yang perform. Belum ada income tapi sistem sudah berjalan.', income: '$0–50/mo' },
-        { id: '3', stageNum: 'Tahap 3', stageName: 'Bulan 3–8', skill: 'YPP aktif. Income YT mulai masuk. Skill: musik AI + video editing + SEO YouTube terbentuk. Deliberate practice: perbaiki 1 hal per video.', income: '$100–500/mo' },
-        { id: '4', stageNum: 'Tahap 4', stageName: 'Bulan 8–18', skill: 'YT stabil. Buka kembali microstock dengan strategi baru. Mulai Framer/Elementor template. Tiga income stream aktif bersamaan.', income: '$500–2k/mo' },
-        { id: '5', stageNum: 'Tahap 5', stageName: 'Bulan 18–36', skill: 'Compounding konten + template sales + web design service. Skill set rare + valuable terbentuk. Income bisa scale tanpa linear tambah jam kerja.', income: '$2k–10k/mo' },
+        { id: '1', stageNum: 'Tahap 1', stageName: 'Sekarang', skill: 'Kerja + Survey = income primer stabil. YouTube = 0. Sistem baru dimulai. Kuliah online berjalan.', income: 'UMR' },
+        { id: '2', stageNum: 'Tahap 2', stageName: 'Bulan 1–3', skill: '10–15 video live. Workflow otomatis terbentuk. Belum monetisasi tapi sistem sudah berjalan konsisten.', income: 'UMR + $0' },
+        { id: '3', stageNum: 'Tahap 3', stageName: 'Bulan 3–8', skill: 'YPP aktif. Income YT pertama masuk. Kuliah hampir selesai membebaskan 2 jam malam untuk YT.', income: '+$100–500' },
+        { id: '4', stageNum: 'Tahap 4', stageName: 'Bulan 8–18', skill: 'YT stabil + skill dari kuliah diaplikasikan. Pertimbangkan microstock kembali atau Framer template.', income: '+$500–2k' },
+        { id: '5', stageNum: 'Tahap 5', stageName: 'Bulan 18–36', skill: 'Multiple streams: YT ads + sponsorship + template sales + web design. Top 5% nasional tercapai.', income: 'Rp15–25jt' },
       ],
       currentLadderStage: '1',
       dailyBlocks: [],
@@ -205,6 +225,8 @@ export const useStore = create<AppState>()(
       rewards: [],
       pinnedActions: [],
       notes: [],
+      matrixItems: [],
+      triggerSteps: [],
       themeSettings: null,
       isFocusMode: false,
 
@@ -224,6 +246,8 @@ export const useStore = create<AppState>()(
       setRewards: (rewards) => set({ rewards }),
       setPinnedActions: (pinnedActions) => set({ pinnedActions }),
       setNotes: (notes) => set({ notes }),
+      setMatrixItems: (matrixItems) => set({ matrixItems }),
+      setTriggerSteps: (triggerSteps) => set({ triggerSteps }),
       setThemeSettings: (themeSettings) => set({ themeSettings }),
       setFocusMode: (isFocusMode) => set({ isFocusMode }),
 

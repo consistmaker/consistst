@@ -225,5 +225,19 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
+    match /matrixItems/{itemId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner();
+      allow update: if isDocOwner() && isRequestOwner();
+      allow delete: if isDocOwner();
+    }
+
+    match /triggerSteps/{stepId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner();
+      allow update: if isDocOwner() && isRequestOwner();
+      allow delete: if isDocOwner();
+    }
+
   }
 }

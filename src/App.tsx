@@ -987,6 +987,7 @@ function FocusOverlay() {
 }
 
 function Hero() {
+  const store = useStore();
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -995,19 +996,145 @@ function Hero() {
       className="hero"
     >
       <div className="hero-eyebrow">
-        <span>Life Operating System — Evidence Based</span>
+        <span>Sistem Harian Personal — Dikalibrasi untuk Kondisimu</span>
       </div>
-      <h1>Dari UMR<br />menuju <em>Top 5%</em></h1>
+      <h1>Dari UMR<br />ke <span>Top 5%</span><br />Nasional</h1>
+      <div className="hero-context">
+        <span className="ctx-tag work">💼 Kerja + Survey</span>
+        <span className="ctx-tag study">📚 Kuliah Online</span>
+        <span className="ctx-tag yt">🎵 YouTube Music</span>
+        <span className="ctx-tag family">👨‍👩‍👧 Keluarga + Anak</span>
+      </div>
       <p className="hero-desc">
-        Sistem berbasis riset ilmiah valid yang dirancang spesifik untuk karakter Elang + Koala + Singa.
-        Bukan motivasi kosong — tapi mekanisme kognitif nyata yang bisa diimplementasi hari ini.
+        Kamu punya 2+ jam/hari untuk YouTube di luar semua itu. Itu cukup — jika digunakan dengan sistem yang tepat, bukan dengan willpower.
       </p>
-      <div className="char-row">
-        <span className="chip s">🦁 Singa — hasil & berani</span>
-        <span className="chip k">🐨 Koala — rutinitas & stabil</span>
-        <span className="chip e">🦅 Elang — detail & proses</span>
-      </div>
     </motion.div>
+  );
+}
+
+function CoveyMatrix() {
+  const store = useStore();
+  const [adding, setAdding] = useState<string | null>(null);
+  const [text, setText] = useState('');
+
+  const handleAdd = async (quadrant: 'q1' | 'q2' | 'q3' | 'q4') => {
+    if (!text.trim() || !store.user) return;
+    const id = Math.random().toString(36).substring(7);
+    const path = 'matrixItems';
+    try {
+      await setDoc(doc(db, path, id), { id, uid: store.user.uid, quadrant, text: text.trim() });
+      setText('');
+      setAdding(null);
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+  };
+
+  const handleDelete = async (id: string) => {
+    const path = `matrixItems/${id}`;
+    try { await deleteDoc(doc(db, 'matrixItems', id)); }
+    catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  };
+
+  const getItems = (q: string) => store.matrixItems.filter(i => i.quadrant === q);
+
+  return (
+    <div className="sec">
+      <div className="sec-label">Prioritas Energi — Covey Matrix</div>
+      <div className="matrix">
+        {[
+          { id: 'q1', label: 'Q1 · Lakukan Sekarang', title: 'Penting + Mendesak', color: 'var(--singa)' },
+          { id: 'q2', label: 'Q2 · Jadwalkan', title: 'Penting + Tidak Mendesak', color: 'var(--koala)' },
+          { id: 'q3', label: 'Q3 · Batasi', title: 'Tidak Penting + Mendesak', color: 'var(--gold)' },
+          { id: 'q4', label: 'Q4 · Eliminasi', title: 'Tidak Penting + Tidak Mendesak', color: 'var(--muted)' },
+        ].map(q => (
+          <div key={q.id} className={`mx-card ${q.id}`}>
+            <div className="mx-label">{q.label}</div>
+            <div className="mx-title">{q.title}</div>
+            <ul className="mx-items">
+              {getItems(q.id).map(item => (
+                <li key={item.id}>
+                  {item.text}
+                  <button onClick={() => handleDelete(item.id)} style={{ background: 'transparent', border: 'none', color: 'var(--muted2)', cursor: 'pointer', marginLeft: 'auto' }}><X size={10}/></button>
+                </li>
+              ))}
+            </ul>
+            {adding === q.id ? (
+              <div style={{ marginTop: '10px' }}>
+                <input className="input-field" style={{ fontSize: '11px', padding: '6px' }} value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdd(q.id as any)} autoFocus />
+                <div className="flex-row"><button className="btn btn-sm btn-primary" onClick={() => handleAdd(q.id as any)}>Simpan</button></div>
+              </div>
+            ) : (
+              <button className="btn btn-sm" style={{ marginTop: '10px', width: '100%', fontSize: '10px' }} onClick={() => setAdding(q.id)}><Plus size={10}/> Tambah Item</button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TriggerProtocol() {
+  const store = useStore();
+  return (
+    <div className="sec">
+      <div className="sec-label">Protokol Trigger — Saat Sendiri + Stres</div>
+      <div className="trigger-flow">
+        {store.triggerSteps.sort((a,b) => a.num.localeCompare(b.num)).map(step => (
+          <div key={step.id} className="tf-row">
+            <div className="tf-num">{step.num}</div>
+            <div className="tf-content">
+              <h4>{step.title}</h4>
+              <p>{step.content}</p>
+              {step.ii && (
+                <div className="ii-box">
+                  <strong>Implementation Intention</strong>
+                  {step.ii}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="warn-box" style={{ marginTop: '12px' }}>
+        <div className="warn-title">⚠ Catatan Penting</div>
+        <div className="warn-body">
+          Protokol ini adalah langkah pertama. Jika dalam 30 hari sistem ini tidak cukup membantu, pertimbangkan serius untuk berkonsultasi dengan psikolog. Bukan karena ada yang salah denganmu — tapi karena hambatan ini nyata dan layak mendapat bantuan profesional. Ini sama seperti ke dokter untuk masalah fisik.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WeekendSystem() {
+  return (
+    <div className="sec">
+      <div className="sec-label">Sabtu & Minggu — Berbeda dari Weekday</div>
+      <div className="energy-week">
+        {[
+          { name: 'Sen', tasks: [{t: 'YT Produksi', c: 'dt-yt'}, {t: 'Kerja', c: 'dt-work'}, {t: 'Kuliah', c: 'dt-study'}] },
+          { name: 'Sel', tasks: [{t: 'YT Upload', c: 'dt-yt'}, {t: 'Kerja', c: 'dt-work'}, {t: 'Kuliah', c: 'dt-study'}] },
+          { name: 'Rab', tasks: [{t: 'YT Produksi', c: 'dt-yt'}, {t: 'Kerja', c: 'dt-work'}, {t: 'Kuliah', c: 'dt-study'}] },
+          { name: 'Kam', tasks: [{t: 'YT Analisa', c: 'dt-yt'}, {t: 'Kerja', c: 'dt-work'}, {t: 'Kuliah', c: 'dt-study'}] },
+          { name: 'Jum', tasks: [{t: 'YT Produksi', c: 'dt-yt'}, {t: 'Kerja', c: 'dt-work'}, {t: 'dt-rest', c: 'dt-rest'}] },
+          { name: 'Sab', tasks: [{t: 'YT 3 jam', c: 'dt-yt'}, {t: 'Kuliah', c: 'dt-study'}, {t: 'Keluarga', c: 'dt-rest'}] },
+          { name: 'Min', tasks: [{t: 'Keluarga', c: 'dt-rest'}, {t: 'Review', c: 'dt-review'}, {t: 'Istirahat', c: 'dt-rest'}] },
+        ].map(day => (
+          <div key={day.name} className="day-col">
+            <div className="day-name">{day.name}</div>
+            <div className="day-tasks">
+              {day.tasks.map((task, i) => (
+                <div key={i} className={`day-task ${task.c}`}>{task.t}</div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ marginTop: '12px' }}>
+        <div style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: '1.7' }}>
+          <strong style={{ color: 'var(--text)' }}>Sabtu:</strong> Sesi YouTube terpanjang — 3 jam tanpa gangguan. Buat 2–3 video sekaligus (batch production). Jauh lebih efisien dari produksi harian.<br />
+          <strong style={{ color: 'var(--text)' }}>Minggu:</strong> Hari keluarga murni + review mingguan 15 menit. Tidak ada produksi. Koala butuh hari reset penuh.
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1141,75 +1268,33 @@ function IncomeLadder() {
 
   return (
     <div className="sec">
-      <div className="sec-header">
-        <div className="sec-icon" style={{ background: '#f59e0b15' }}><TrendingUp size={16} color="var(--gold)" /></div>
-        <div className="sec-title">Tangga Income — UMR ke Top 5%</div>
-      </div>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {store.ladder.map((item, index) => {
+      <div className="sec-label">Proyeksi Income — Realistis Berbasis Sistem Ini</div>
+      <div className="projection">
+        {store.ladder.map((item) => {
           const isCurrent = store.currentLadderStage === item.id;
           const isPast = parseInt(item.id) < parseInt(store.currentLadderStage);
           
           return (
             <motion.div 
               key={item.id} 
-              whileHover={{ x: 4 }}
               onClick={() => handleStageChange(item.id)}
-              className={`card ${isCurrent ? 'current-stage' : ''}`}
+              className={`proj-row ${isCurrent ? 'now' : ''}`}
               style={{ 
-                cursor: 'pointer', 
-                margin: 0, 
-                position: 'relative',
-                borderLeft: isCurrent ? '4px solid var(--green)' : isPast ? '4px solid var(--muted)' : '4px solid transparent',
-                background: isCurrent ? 'var(--s2)' : 'var(--s1)',
-                opacity: isPast ? 0.7 : 1
+                cursor: 'pointer',
+                opacity: isPast ? 0.6 : 1
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <span style={{ 
-                      fontFamily: 'DM Mono', 
-                      fontSize: '10px', 
-                      background: isCurrent ? 'var(--green)' : 'var(--border2)',
-                      color: isCurrent ? 'white' : 'var(--muted2)',
-                      padding: '2px 6px',
-                      borderRadius: '4px'
-                    }}>
-                      {item.stageNum}
-                    </span>
-                    <span style={{ fontWeight: 600, fontSize: '14px' }}>{item.stageName}</span>
-                  </div>
-                  <p style={{ fontSize: '12px', color: 'var(--muted2)', lineHeight: '1.5' }}>{item.skill}</p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: isCurrent ? 'var(--green)' : 'var(--text)' }}>{item.income}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px' }}>Per Bulan</div>
-                </div>
+              <div className="proj-phase">
+                <strong>{item.stageName}</strong>
+                {item.stageNum}
               </div>
-              {isCurrent && (
-                <div style={{ 
-                  marginTop: '12px', 
-                  paddingTop: '12px', 
-                  borderTop: '1px solid var(--border)',
-                  fontSize: '11px',
-                  color: 'var(--green)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <CheckCircle2 size={12} /> Fokus saat ini: Bangun sistem dan asah skill utama.
-                </div>
-              )}
+              <div className="proj-desc">{item.skill}</div>
+              <div className="proj-income" style={{ color: isCurrent ? 'var(--singa)' : 'var(--muted)' }}>
+                {item.income}
+              </div>
             </motion.div>
           );
         })}
-      </div>
-
-      <div style={{ marginTop: '16px', padding: '16px', background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '11px', color: 'var(--muted2)', lineHeight: '1.6' }}>
-        <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>💡 REALITY CHECK</div>
-        Top 5% nasional Indonesia ≈ Rp15–25 juta/bulan (BPS 2023). Realistis dalam 2–3 tahun dengan eksekusi konsisten — bukan skema cepat kaya.
       </div>
     </div>
   );
@@ -1219,7 +1304,7 @@ function DailySystem() {
   const store = useStore();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ char: '🌅', time: '', name: '', tasks: '' });
+  const [form, setForm] = useState({ char: '🌅', time: '', name: '', tasks: '', ii: '' });
 
   const handleAdd = async () => {
     if (form.name && store.user) {
@@ -1233,7 +1318,7 @@ function DailySystem() {
           tasks: form.tasks.split('\n').filter(Boolean), 
           createdAt: serverTimestamp() 
         }, { merge: true });
-        setForm({ char: '🌅', time: '', name: '', tasks: '' });
+        setForm({ char: '🌅', time: '', name: '', tasks: '', ii: '' });
         setAdding(false);
         setEditingId(null);
       } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
@@ -1245,7 +1330,8 @@ function DailySystem() {
       char: block.char,
       time: block.time,
       name: block.name,
-      tasks: block.tasks.join('\n')
+      tasks: block.tasks.join('\n'),
+      ii: block.ii || ''
     });
     setEditingId(block.id);
     setAdding(true);
@@ -1259,50 +1345,61 @@ function DailySystem() {
 
   return (
     <div className="sec">
-      <div className="sec-header">
-        <div className="sec-icon" style={{ background: '#10b98115' }}><RefreshCw size={16} color="var(--green)" /></div>
-        <div className="sec-title">
-          <span>Sistem Harian</span>
-          <button className="btn btn-sm" onClick={() => { setAdding(!adding); setEditingId(null); setForm({ char: '🌅', time: '', name: '', tasks: '' }); }}>
-            {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Tambah'}
+      <div className="sec-label">Jadwal Harian — Senin s/d Jumat</div>
+      <div className="schedule">
+        <AnimatePresence>
+          {adding && (
+             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="card mb-4">
+               <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', color: 'var(--elang)' }}>
+                 {editingId ? 'EDIT BLOK SISTEM' : 'TAMBAH BLOK SISTEM BARU'}
+               </div>
+               <div className="flex-row">
+                 <input className="input-field" placeholder="Ikon (🌅)" value={form.char} onChange={e => setForm({...form, char: e.target.value})} style={{ width: '60px' }} />
+                 <input className="input-field" placeholder="Waktu (05:00 - 06:00)" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
+                 <input className="input-field" placeholder="Nama Blok (Creative Block)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+               </div>
+               <textarea className="input-field" rows={3} placeholder="Tugas (satu per baris)" value={form.tasks} onChange={e => setForm({...form, tasks: e.target.value})} />
+               <input className="input-field" placeholder="Implementation Intention (Opsional)" value={form.ii} onChange={e => setForm({...form, ii: e.target.value})} />
+               <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAdd}>
+                 {editingId ? 'Update Block' : 'Simpan Block'}
+               </button>
+             </motion.div>
+          )}
+        </AnimatePresence>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {store.dailyBlocks.map((block) => (
+            <div key={block.id} className="time-row">
+              <div className="time-col">
+                <div className="time-val">{block.time.split(' - ')[0]}</div>
+                <div className="time-val">{block.time.split(' - ')[1]}</div>
+                <div className="time-dur">{block.char}</div>
+              </div>
+              <div className="time-body">
+                <div className="time-title">
+                  <div className="time-dot" style={{ background: 'var(--primary)' }}></div>
+                  {block.name}
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                    <button style={{ background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer' }} onClick={() => handleEdit(block)}><Edit2 size={12}/></button>
+                    <button style={{ background:'transparent', border:'none', color:'var(--red)', cursor:'pointer' }} onClick={() => handleDelete(block.id)}><Trash2 size={12}/></button>
+                  </div>
+                </div>
+                <ul className="time-tasks">
+                  {block.tasks.map((task, i) => <li key={i}>{task}</li>)}
+                </ul>
+                {(block as any).ii && (
+                  <div className="time-ii">
+                    <strong>Implementation Intention</strong>
+                    {(block as any).ii}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <button className="btn btn-sm" style={{ width: '100%', marginTop: '8px' }} onClick={() => { setAdding(!adding); setEditingId(null); setForm({ char: '🌅', time: '', name: '', tasks: '', ii: '' }); }}>
+            <Plus size={14}/> Tambah Blok Jadwal
           </button>
         </div>
-      </div>
-      <AnimatePresence>
-        {adding && (
-           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="card mb-4">
-             <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', color: 'var(--elang)' }}>
-               {editingId ? 'EDIT BLOK SISTEM' : 'TAMBAH BLOK SISTEM BARU'}
-             </div>
-             <div className="flex-row">
-               <input className="input-field" placeholder="Ikon (🌅)" value={form.char} onChange={e => setForm({...form, char: e.target.value})} style={{ width: '60px' }} />
-               <input className="input-field" placeholder="Waktu (05:00 - 06:00)" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
-               <input className="input-field" placeholder="Nama Blok (Creative Block)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-             </div>
-             <textarea className="input-field" rows={3} placeholder="Tugas (satu per baris)" value={form.tasks} onChange={e => setForm({...form, tasks: e.target.value})} />
-             <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAdd}>
-               {editingId ? 'Update Block' : 'Simpan Block'}
-             </button>
-           </motion.div>
-        )}
-      </AnimatePresence>
-      <div className="daily-wrap">
-        <AnimatePresence initial={false}>
-          {store.dailyBlocks.map((block) => (
-            <motion.div key={block.id} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="daily-block">
-              <div className="db-char">{block.char}</div>
-              <div className="db-time">
-                <span>{block.time}</span>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button style={{ background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer' }} onClick={() => handleEdit(block)}><Edit2 size={12}/></button>
-                  <button style={{ background:'transparent', border:'none', color:'var(--red)', cursor:'pointer' }} onClick={() => handleDelete(block.id)}><Trash2 size={12}/></button>
-                </div>
-              </div>
-              <div className="db-name">{block.name}</div>
-              <ul className="db-tasks">{block.tasks.map((task, i) => <li key={i}>{task}</li>)}</ul>
-            </motion.div>
-          ))}
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -1888,9 +1985,13 @@ async function seedUserData(uid: string) {
 
   // Daily Blocks
   const blocks = [
-    { char: '🌅', time: '05:00–06:00 · Pagi', name: 'Creative Block', tasks: ['Baca catatan malam sebelumnya', 'Generate 1 track Suno ATAU buat visual AI', 'Sebelum buka sosmed apapun'] },
-    { char: '☀️', time: 'Kerja Utama · Siang', name: 'Kerja Utama', tasks: ['Fokus penuh ke pekerjaan utama', 'YouTube bukan prioritas jam ini', 'Jaga income primer tetap stabil'] },
-    { char: '🌙', time: '21:00–21:15 · Malam', name: 'Brain Load', tasks: ['Tulis 1 masalah kreatif di catatan', 'Tutup semua app — tidur'] }
+    { id: 'b1', char: '🌅', time: '05:00 - 06:00', name: 'Creative Block — YouTube', tasks: ['Generate 1 track Suno ATAU buat visual AI untuk video', 'Edit video yang sudah ada draft-nya', 'Sebelum buka HP / sosmed apapun — ini aturan keras'], ii: 'Jika alarm 05:00 bunyi dan aku sudah duduk → langsung buka laptop, bukan HP.' },
+    { id: 'b2', char: '🍳', time: '06:00 - 07:00', name: 'Keluarga + Persiapan', tasks: ['Sarapan, persiapan anak, waktu keluarga', 'Tidak ada kerja di jam ini — ini waktu keluarga murni', 'Koala butuh batas waktu yang jelas antara domain'] },
+    { id: 'b3', char: '💼', time: '07:00 - 16:00', name: 'Kerja Utama + Survey', tasks: ['Fokus penuh ke pekerjaan — ini income primer yang harus dijaga stabil', 'Survey diselesaikan sesuai target kerja', 'YouTube tidak masuk jam ini sama sekali', 'Singa: ini adalah "bertahan" dulu, bukan menyerang'] },
+    { id: 'b4', char: '☕', time: '16:00 - 17:00', name: 'Buffer + Transisi', tasks: ['Istirahat aktif — jalan kaki singkat, makan, dekompresi', 'Ini bukan waktu produktif — ini pengisian ulang energi', 'Tanpa buffer ini, sesi YouTube malam akan tidak efektif'], ii: 'Jika dorongan negatif muncul di jam ini → langsung keluar ruangan, jalan 5 menit, lalu buka catatan dan tulis satu kalimat tentang progress hari ini.' },
+    { id: 'b5', char: '🎵', time: '17:00 - 19:00', name: 'Production Block — YouTube', tasks: ['Senin/Rabu/Jumat: produksi video baru (Suno → visual → edit)', 'Selasa/Kamis: optimasi + upload + analisa analytics', 'Workflow SAMA setiap sesi — Koala butuh rutinitas tidak berubah', 'Target: 1 video selesai per 2 hari produksi'], ii: 'Jika jam menunjukkan 17:00 dan kerja sudah selesai → langsung buka folder project YouTube, bukan sosmed.' },
+    { id: 'b6', char: '🎓', time: '19:00 - 21:00', name: 'Kuliah Online', tasks: ['Fokus kuliah — ini investasi jangka panjang untuk income ladder', 'Elang: catat poin penting secara singkat, bukan semua hal', 'Jika tidak ada kuliah malam itu → tambah 1 jam YouTube atau istirahat'] },
+    { id: 'b7', char: '📝', time: '21:00 - 21:15', name: 'Brain Dump + Plan Besok', tasks: ['Tulis satu kalimat: "Besok aku akan [X]" — spesifik', 'Tulis satu masalah kreatif untuk diproses otak saat tidur', 'Tutup semua app — Default Mode Network bekerja saat tidur'], ii: 'Jika sudah 21:00 → tulis catatan malam, letakkan HP di luar kamar, tidur.' }
   ];
 
   // Reframes
@@ -1911,8 +2012,7 @@ async function seedUserData(uid: string) {
       q1: 'Minggu ini aku sudah upload 2 video dan dapat 500 views, income $5.',
       q2: 'Terlalu perfeksionis saat editing, makan waktu lama.',
       q3: 'Jika edit jam 17:00, aku set timer 1 jam. Kalau habis, langsung render.',
-      date: new Date().toISOString(),
-      createdAt: serverTimestamp()
+      date: new Date().toISOString()
     }
   ];
 
@@ -1922,13 +2022,38 @@ async function seedUserData(uid: string) {
     { text: 'Cek email dari YouTube / Microstock', completed: false }
   ];
 
+  // Matrix
+  const matrix = [
+    { id: 'm1', quadrant: 'q1', text: 'Deadline kerja / survey' },
+    { id: 'm2', quadrant: 'q1', text: 'Kebutuhan anak dan keluarga' },
+    { id: 'm3', quadrant: 'q1', text: 'Upload video yang sudah siap' },
+    { id: 'm4', quadrant: 'q1', text: 'Tugas kuliah deadline hari ini' },
+    { id: 'm5', quadrant: 'q2', text: 'Produksi video YouTube rutin' },
+    { id: 'm6', quadrant: 'q2', text: 'Belajar kuliah online' },
+    { id: 'm7', quadrant: 'q2', text: 'Review mingguan sistem' },
+    { id: 'm8', quadrant: 'q2', text: 'Olahraga + kesehatan' },
+    { id: 'm9', quadrant: 'q3', text: 'Notifikasi sosmed' },
+    { id: 'm10', quadrant: 'q3', text: 'Chat yang tidak kritis' },
+    { id: 'm11', quadrant: 'q3', text: 'Research tools baru terus-terusan' },
+    { id: 'm12', quadrant: 'q4', text: 'Scroll tanpa tujuan' },
+    { id: 'm13', quadrant: 'q4', text: 'Trigger negatif saat sendiri' },
+    { id: 'm14', quadrant: 'q4', text: 'Overthinking tanpa aksi' }
+  ];
+
+  // Trigger Steps
+  const triggerSteps = [
+    { id: 't1', num: '01', title: 'Kenali — Jangan Lawan Langsung', content: 'Saat dorongan negatif muncul, katakan dalam hati: "Ini sinyal stres, bukan kebutuhan nyata. Aku sedang menghindari sesuatu." Jangan panik, jangan paksa.' },
+    { id: 't2', num: '02', title: '2 Menit Pertama — Kritis', content: 'Dalam 2 menit pertama otak masih bisa dialihkan. Setelah itu jauh lebih susah. Langkah: tutup semua tab/app, berdiri, keluar ruangan.', ii: 'Jika dorongan muncul → langsung berdiri dan berjalan ke ruangan lain. Itu saja dulu.' },
+    { id: 't3', num: '03', title: 'Alihkan ke Output Kreatif', content: 'Energi arousal meningkatkan kreativitas jika dialihkan sebelum eskalasi. Buka Suno, buat satu track, atau tulis ide video. Energi yang sama, output berbeda.', ii: 'Jika sudah berdiri dan keluar ruangan → langsung buka laptop dan kerjakan satu hal kecil di YouTube project.' },
+    { id: 't4', num: '04', title: 'Jika Gagal — Tidak Apa-Apa', content: 'Shame loop adalah musuh terbesar. Jika protokol gagal, jangan tambah rasa bersalah. Catat trigger-nya: jam berapa, sedang apa, stres tentang apa. Data ini penting untuk perbaikan sistem, bukan untuk menghukum diri.' }
+  ];
+
   for (const item of intentions) {
     const id = Math.random().toString(36).substring(7);
     await setDoc(doc(db, 'intentions', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
   for (const item of blocks) {
-    const id = Math.random().toString(36).substring(7);
-    await setDoc(doc(db, 'dailyBlocks', id), { ...item, id, uid, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'dailyBlocks', item.id), { ...item, uid, createdAt: serverTimestamp() });
   }
   for (const item of reframes) {
     const id = Math.random().toString(36).substring(7);
@@ -1946,6 +2071,12 @@ async function seedUserData(uid: string) {
     const id = Math.random().toString(36).substring(7);
     await setDoc(doc(db, 'quickTasks', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
+  for (const item of matrix) {
+    await setDoc(doc(db, 'matrixItems', item.id), { ...item, uid });
+  }
+  for (const item of triggerSteps) {
+    await setDoc(doc(db, 'triggerSteps', item.id), { ...item, uid });
+  }
 
   // Initial Daily Stats
   const today = new Date().toISOString().split('T')[0];
@@ -1955,7 +2086,7 @@ async function seedUserData(uid: string) {
     uid,
     date: today,
     mainCompleted: 0,
-    mainTotal: 9, // 3 blocks * 3 tasks approx
+    mainTotal: 7, 
     quickCompleted: 0,
     completedMainIds: []
   });
@@ -2099,6 +2230,20 @@ export default function App() {
       if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'notes');
     });
 
+    const qMatrix = query(collection(db, 'matrixItems'), where('uid', '==', user.uid));
+    const unsubMatrix = onSnapshot(qMatrix, (snap) => {
+      store.setMatrixItems(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'matrixItems');
+    });
+
+    const qTrigger = query(collection(db, 'triggerSteps'), where('uid', '==', user.uid));
+    const unsubTrigger = onSnapshot(qTrigger, (snap) => {
+      store.setTriggerSteps(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'triggerSteps');
+    });
+
     return () => {
       unsubIntentions();
       unsubBlocks();
@@ -2114,6 +2259,8 @@ export default function App() {
       unsubPinned();
       unsubTheme();
       unsubNotes();
+      unsubMatrix();
+      unsubTrigger();
     };
   }, [store.user]);
 
@@ -2186,6 +2333,10 @@ export default function App() {
               <div>
                 <Notepad />
                 <PinnedActions />
+                <DailySystem />
+                <WeekendSystem />
+                <CoveyMatrix />
+                <TriggerProtocol />
                 <PomodoroTimer />
                 <ResearchBase />
                 <ImplementationIntentions />
@@ -2199,7 +2350,6 @@ export default function App() {
                 <FocusStats />
                 <DailyRewards />
                 <MasterHistory />
-                <DailySystem />
                 <ProgressTracker />
                 <WeeklyReview />
                 <MindsetReframe />
