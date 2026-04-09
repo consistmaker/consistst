@@ -123,6 +123,13 @@ service cloud.firestore {
                       hasOnlyAllowedFields(['uid', 'email', 'displayName', 'currentLadderStage']);
     }
 
+    match /focusSettings/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
     match /intentions/{intentionId} {
       allow read: if isDocOwner();
       allow create: if isRequestOwner() && 
@@ -175,5 +182,27 @@ service cloud.firestore {
       allow update: if isDocOwner() && isRequestOwner() && request.resource.data.date is string;
       allow delete: if isDocOwner();
     }
+
+    match /focusGoals/{goalId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.dailyMinutes is number;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.dailyMinutes is number;
+      allow delete: if isDocOwner();
+    }
+
+    match /focusSessions/{sessionId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.duration is number;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.duration is number;
+      allow delete: if isDocOwner();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.text is string;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.text is string;
+      allow delete: if isDocOwner();
+    }
+
   }
 }

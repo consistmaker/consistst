@@ -95,7 +95,7 @@
       },
       "required": ["uid", "text", "completed"]
     },
-    "DailyStats": {
+    "dailyStats": {
       "title": "DailyStats",
       "description": "Daily productivity statistics",
       "type": "object",
@@ -108,6 +108,55 @@
         "quickCompleted": { "type": "number" }
       },
       "required": ["uid", "date"]
+    },
+    "FocusGoal": {
+      "title": "FocusGoal",
+      "description": "Daily deep work goals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "dailyMinutes": { "type": "number" }
+      },
+      "required": ["uid", "dailyMinutes"]
+    },
+    "FocusSession": {
+      "title": "FocusSession",
+      "description": "Completed deep work sessions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "duration": { "type": "number" },
+        "type": { "type": "string", "enum": ["work", "break"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "duration", "type"]
+    },
+    "FocusSettings": {
+      "title": "FocusSettings",
+      "description": "User focus preferences and blocklist",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "blocklist": { "type": "array", "items": { "type": "string" } },
+        "workDuration": { "type": "number" },
+        "breakDuration": { "type": "number" }
+      },
+      "required": ["uid"]
+    },
+    "Reward": {
+      "title": "Reward",
+      "description": "Customizable daily rewards for productivity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "text": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "text"]
     }
   },
   "firestore": {
@@ -142,6 +191,22 @@
     "/dailyStats/{statId}": {
       "schema": "DailyStats",
       "description": "User specific daily productivity stats"
+    },
+    "/focusGoals/{goalId}": {
+      "schema": "FocusGoal",
+      "description": "User specific focus goals"
+    },
+    "/focusSessions/{sessionId}": {
+      "schema": "FocusSession",
+      "description": "User specific focus sessions"
+    },
+    "/focusSettings/{settingId}": {
+      "schema": "FocusSettings",
+      "description": "User specific focus settings"
+    },
+    "/rewards/{rewardId}": {
+      "schema": "Reward",
+      "description": "User specific customizable rewards"
     }
   }
 }

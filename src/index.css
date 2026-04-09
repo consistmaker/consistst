@@ -22,6 +22,8 @@
   --text: #eeeef5;
   --muted: #5a5a72;
   --muted2: #8888a0;
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,6 +34,11 @@ body {
   font-family: 'Instrument Sans', sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background 0.5s ease;
+}
+
+body.focus-mode {
+  background: #050508;
 }
 
 /* Ambient glow */
@@ -41,7 +48,7 @@ body::after {
   top: -200px; left: 50%;
   transform: translateX(-50%);
   width: 600px; height: 400px;
-  background: radial-gradient(ellipse, #8b5cf610 0%, transparent 70%);
+  background: radial-gradient(ellipse, #8b5cf608 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -52,6 +59,180 @@ body::after {
   padding: 48px 20px 100px;
   position: relative;
   z-index: 1;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.wrap.focus-active {
+  opacity: 0.1;
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+/* ─── GRID LAYOUT ─── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 48px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+.sticky-side {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── FOCUS OVERLAY ─── */
+.focus-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #141526 0%, #050508 100%);
+  animation: fadeIn 0.8s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.focus-timer-large {
+  text-align: center;
+}
+
+.timer-digits {
+  font-family: 'DM Mono', monospace;
+  font-size: clamp(80px, 15vw, 160px);
+  font-weight: 500;
+  letter-spacing: -4px;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 24px;
+  text-shadow: 0 0 40px rgba(139, 92, 246, 0.2);
+}
+
+.timer-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--muted2);
+  margin-bottom: 48px;
+}
+
+/* ─── POMODORO WIDGET ─── */
+.pomo-widget {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pomo-widget::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 2px;
+  background: linear-gradient(90deg, var(--elang), var(--koala));
+  opacity: 0.5;
+}
+
+.pomo-display {
+  flex: 1;
+}
+
+.pomo-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 40px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.pomo-status {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+
+.pomo-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.pomo-btn {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text);
+  transition: all 0.2s;
+}
+
+.pomo-btn:hover {
+  background: var(--border2);
+  transform: translateY(-2px);
+}
+
+.pomo-btn.active {
+  background: var(--elang);
+  color: white;
+  border-color: var(--elang);
+}
+
+/* ─── GOAL TRACKER ─── */
+.goal-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.goal-title {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.goal-progress-bg {
+  height: 6px;
+  background: var(--s2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.goal-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--elang), var(--koala));
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ─── HEADER ─── */

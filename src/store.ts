@@ -28,7 +28,7 @@ export interface DailyBlock {
   tasks: string[];
 }
 
-export interface WeeklyReview {
+export interface WeeklyReviewType {
   id: string;
   uid: string;
   q1: string;
@@ -68,6 +68,35 @@ export interface DailyStats {
   quickCompleted: number;
 }
 
+export interface FocusGoal {
+  id: string;
+  uid: string;
+  dailyMinutes: number;
+}
+
+export interface FocusSession {
+  id: string;
+  uid: string;
+  duration: number;
+  type: 'work' | 'break';
+  createdAt: any;
+}
+
+export interface FocusSettings {
+  uid: string;
+  blocklist: string[];
+  workDuration: number;
+  breakDuration: number;
+}
+
+export interface Reward {
+  id: string;
+  uid: string;
+  text: string;
+  completed: boolean;
+  createdAt: any;
+}
+
 interface AppState {
   user: FirebaseUser | null;
   isAuthReady: boolean;
@@ -75,22 +104,32 @@ interface AppState {
   ladder: LadderItem[];
   currentLadderStage: string;
   dailyBlocks: DailyBlock[];
-  weeklyReviews: WeeklyReview[];
+  weeklyReviews: WeeklyReviewType[];
   reframes: Reframe[];
   trackers: Tracker[];
   quickTasks: QuickTask[];
   dailyStats: DailyStats[];
+  focusGoals: FocusGoal[];
+  focusSessions: FocusSession[];
+  focusSettings: FocusSettings | null;
+  rewards: Reward[];
+  isFocusMode: boolean;
 
   setUser: (user: FirebaseUser | null) => void;
   setAuthReady: (ready: boolean) => void;
   
   setIntentions: (intentions: Intention[]) => void;
   setDailyBlocks: (blocks: DailyBlock[]) => void;
-  setWeeklyReviews: (reviews: WeeklyReview[]) => void;
+  setWeeklyReviews: (reviews: WeeklyReviewType[]) => void;
   setReframes: (reframes: Reframe[]) => void;
   setTrackers: (trackers: Tracker[]) => void;
   setQuickTasks: (tasks: QuickTask[]) => void;
   setDailyStats: (stats: DailyStats[]) => void;
+  setFocusGoals: (goals: FocusGoal[]) => void;
+  setFocusSessions: (sessions: FocusSession[]) => void;
+  setFocusSettings: (settings: FocusSettings | null) => void;
+  setRewards: (rewards: Reward[]) => void;
+  setFocusMode: (enabled: boolean) => void;
 
   addIntention: (intention: Omit<Intention, 'id' | 'uid'>) => void;
   deleteIntention: (id: string) => void;
@@ -100,7 +139,7 @@ interface AppState {
   addDailyBlock: (block: Omit<DailyBlock, 'id' | 'uid'>) => void;
   deleteDailyBlock: (id: string) => void;
   
-  addWeeklyReview: (review: Omit<WeeklyReview, 'id' | 'uid' | 'date'>) => void;
+  addWeeklyReview: (review: Omit<WeeklyReviewType, 'id' | 'uid' | 'date'>) => void;
   deleteWeeklyReview: (id: string) => void;
   
   addReframe: (reframe: Omit<Reframe, 'id' | 'uid'>) => void;
@@ -131,6 +170,11 @@ export const useStore = create<AppState>()(
       trackers: [],
       quickTasks: [],
       dailyStats: [],
+      focusGoals: [],
+      focusSessions: [],
+      focusSettings: null,
+      rewards: [],
+      isFocusMode: false,
 
       setUser: (user) => set({ user }),
       setAuthReady: (isAuthReady) => set({ isAuthReady }),
@@ -142,6 +186,11 @@ export const useStore = create<AppState>()(
       setTrackers: (trackers) => set({ trackers }),
       setQuickTasks: (quickTasks) => set({ quickTasks }),
       setDailyStats: (dailyStats) => set({ dailyStats }),
+      setFocusGoals: (focusGoals) => set({ focusGoals }),
+      setFocusSessions: (focusSessions) => set({ focusSessions }),
+      setFocusSettings: (focusSettings) => set({ focusSettings }),
+      setRewards: (rewards) => set({ rewards }),
+      setFocusMode: (isFocusMode) => set({ isFocusMode }),
 
       addIntention: (intention) => {
         const { user } = get();

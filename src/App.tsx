@@ -3,14 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { useStore } from './store';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { 
   Plus, Trash2, Microscope, Zap, TrendingUp, RefreshCw, ClipboardList, 
   Repeat, BarChart3, CheckCircle2, X, LogIn, LogOut, User as UserIcon,
-  CheckSquare, Square
+  CheckSquare, Square, Play, Pause, RotateCcw, Target, Shield, ShieldOff,
+  Eye, EyeOff, Timer, Edit2, Gift, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  useStore, 
+  Intention, 
+  DailyBlock, 
+  WeeklyReviewType, 
+  Reframe, 
+  Tracker, 
+  QuickTask,
+  FocusGoal,
+  FocusSession,
+  FocusSettings,
+  Reward
+} from './store';
 import { 
   auth, db, googleProvider, signInWithPopup, onAuthStateChanged, 
   collection, doc, setDoc, deleteDoc, updateDoc, query, where, onSnapshot, 
@@ -18,6 +31,48 @@ import {
 } from './firebase';
 
 // --- Components ---
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: any;
+}
+
+class ErrorBoundary extends React.Component<any, any> {
+  state: any = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      let message = "Terjadi kesalahan pada aplikasi.";
+      try {
+        const info = JSON.parse(this.state.error.message);
+        if (info.error && info.error.toLowerCase().includes("permission")) {
+          message = "Izin ditolak. Silakan periksa aturan keamanan Firebase atau coba login ulang.";
+        }
+      } catch (e) {
+        message = this.state.error?.message || message;
+      }
+      
+      return (
+        <div className="wrap" style={{ padding: '40px', textAlign: 'center', minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '24px' }}>⚠️</div>
+          <h2 style={{ color: 'var(--red)', marginBottom: '16px' }}>Ups! Ada Masalah</h2>
+          <p style={{ color: 'var(--muted2)', marginBottom: '32px', lineHeight: '1.6', maxWidth: '400px', margin: '0 auto 32px' }}>{message}</p>
+          <button className="btn btn-primary" style={{ alignSelf: 'center' }} onClick={() => window.location.reload()}>Muat Ulang Aplikasi</button>
+        </div>
+      );
+    }
+
+    return (this as any).props.children;
+  }
+}
 
 function Login() {
   const [error, setError] = useState<string | null>(null);
@@ -88,17 +143,407 @@ function Navbar() {
   if (!user) return null;
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px', gap: '12px', alignItems: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted2)' }}>
-        <UserIcon size={14} />
-        <span>{user.email}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', alignItems: 'center' }}>
+      <button 
+        className={`btn btn-sm ${store.isFocusMode ? 'btn-primary' : ''}`} 
+        onClick={() => store.setFocusMode(!store.isFocusMode)}
+      >
+        {store.isFocusMode ? <EyeOff size={14} /> : <Eye size={14} />}
+        {store.isFocusMode ? 'Matikan Focus Mode' : 'Aktifkan Focus Mode'}
+      </button>
+
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted2)' }}>
+          <UserIcon size={14} />
+          <span>{user.email}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-sm" onClick={handleSeed} style={{ background: 'var(--s2)', border: '1px solid var(--border)' }}>
+            <RefreshCw size={14} /> Masukkan Default
+          </button>
+          <button className="btn btn-sm" onClick={handleLogout}>
+            <LogOut size={14} /> Keluar
+          </button>
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button className="btn btn-sm" onClick={handleSeed} style={{ background: 'var(--s2)', border: '1px solid var(--border)' }}>
-          <RefreshCw size={14} /> Masukkan Default
+    </div>
+  );
+}
+
+function PomodoroTimer() {
+  const store = useStore();
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [isActive, setIsActive] = useState(false);
+  const [mode, setMode] = useState<'work' | 'break'>('work');
+
+  useEffect(() => {
+    let interval: any = null;
+    if (isActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(t => t - 1);
+      }, 1000);
+    } else if (timeLeft === 0) {
+      setIsActive(false);
+      handleComplete();
+    }
+    return () => clearInterval(interval);
+  }, [isActive, timeLeft]);
+
+  const handleComplete = async () => {
+    if (!store.user) return;
+    const duration = mode === 'work' ? 25 : 5;
+    const id = Math.random().toString(36).substring(7);
+    try {
+      await setDoc(doc(db, 'focusSessions', id), {
+        id,
+        uid: store.user.uid,
+        duration,
+        type: mode,
+        createdAt: serverTimestamp()
+      });
+      alert(`${mode === 'work' ? 'Sesi Kerja' : 'Istirahat'} Selesai!`);
+      setMode(mode === 'work' ? 'break' : 'work');
+      setTimeLeft(mode === 'work' ? 5 * 60 : 25 * 60);
+    } catch (e) { console.error(e); }
+  };
+
+  const toggle = () => setIsActive(!isActive);
+  const reset = () => {
+    setIsActive(false);
+    setTimeLeft(mode === 'work' ? 25 * 60 : 5 * 60);
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="pomo-widget">
+      <div className="pomo-display">
+        <div className="pomo-time">{formatTime(timeLeft)}</div>
+        <div className="pomo-status">{mode === 'work' ? 'Deep Work Session' : 'Short Break'}</div>
+      </div>
+      <div className="pomo-controls">
+        <button className={`pomo-btn ${isActive ? 'active' : ''}`} onClick={toggle}>
+          {isActive ? <Pause size={20} /> : <Play size={20} />}
         </button>
-        <button className="btn btn-sm" onClick={handleLogout}>
-          <LogOut size={14} /> Keluar
+        <button className="pomo-btn" onClick={reset}>
+          <RotateCcw size={20} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FocusGoalTracker() {
+  const store = useStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [newGoal, setNewGoal] = useState(120);
+  
+  const goal = store.focusGoals[0] || { dailyMinutes: 120 };
+  const sessions = store.focusSessions;
+  
+  const today = new Date().toISOString().split('T')[0];
+  const todayMinutes = sessions
+    .filter(s => {
+      const d = s.createdAt.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+      return d.toISOString().split('T')[0] === today && s.type === 'work';
+    })
+    .reduce((acc, s) => acc + s.duration, 0);
+
+  const progress = Math.min((todayMinutes / goal.dailyMinutes) * 100, 100);
+
+  const handleUpdateGoal = async () => {
+    if (!store.user) return;
+    const goalId = ('id' in goal) ? goal.id : `${store.user.uid}_goal`;
+    const path = 'focusGoals';
+    try {
+      await setDoc(doc(db, path, goalId), {
+        id: goalId,
+        uid: store.user.uid,
+        dailyMinutes: newGoal
+      });
+      setIsEditing(false);
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+  };
+
+  return (
+    <div className="goal-card">
+      <div className="goal-header">
+        <div className="goal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Target size={16} color="var(--elang)" />
+          Target Deep Work
+        </div>
+        {isEditing ? (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input 
+              type="number" 
+              className="input-field" 
+              style={{ width: '60px', marginBottom: 0, padding: '4px 8px' }} 
+              value={newGoal} 
+              onChange={e => setNewGoal(parseInt(e.target.value) || 0)}
+            />
+            <button className="btn btn-sm btn-primary" onClick={handleUpdateGoal}><Check size={14}/></button>
+            <button className="btn btn-sm" onClick={() => setIsEditing(false)}><X size={14}/></button>
+          </div>
+        ) : (
+          <button className="btn btn-sm" onClick={() => { setIsEditing(true); setNewGoal(goal.dailyMinutes); }}>
+            <Edit2 size={12} /> Edit
+          </button>
+        )}
+      </div>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px' }}>
+        <span style={{ color: 'var(--muted2)' }}>{todayMinutes} / {goal.dailyMinutes} menit</span>
+        <span style={{ fontWeight: 600, color: 'var(--elang)' }}>{progress.toFixed(0)}%</span>
+      </div>
+      
+      <div className="goal-progress-bg">
+        <div className="goal-progress-bar" style={{ width: `${progress}%` }}></div>
+      </div>
+    </div>
+  );
+}
+
+function BlocklistManager() {
+  const store = useStore();
+  const [url, setUrl] = useState('');
+
+  const handleAdd = async () => {
+    if (!url.trim() || !store.user) return;
+    const currentList = store.focusSettings?.blocklist || [];
+    if (currentList.includes(url.trim())) return;
+
+    const id = store.user.uid;
+    try {
+      await setDoc(doc(db, 'focusSettings', id), {
+        uid: store.user.uid,
+        blocklist: [...currentList, url.trim()],
+        workDuration: 25,
+        breakDuration: 5
+      }, { merge: true });
+      setUrl('');
+    } catch (e) { console.error(e); }
+  };
+
+  const remove = async (item: string) => {
+    if (!store.user) return;
+    const currentList = store.focusSettings?.blocklist || [];
+    try {
+      await setDoc(doc(db, 'focusSettings', store.user.uid), {
+        blocklist: currentList.filter(i => i !== item)
+      }, { merge: true });
+    } catch (e) { console.error(e); }
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#ef444415' }}><Shield size={16} color="var(--red)" /></div>
+        <div className="sec-title">Distraction Blocklist</div>
+        <div className="sec-ref">Hapus Gangguan Digital</div>
+      </div>
+      <div className="card">
+        <div className="flex-row mb-4">
+          <input 
+            className="input-field" 
+            style={{ marginBottom: 0 }} 
+            placeholder="Tambah URL atau App (misal: facebook.com)" 
+            value={url} 
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          />
+          <button className="btn btn-primary" onClick={handleAdd}>Tambah</button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {store.focusSettings?.blocklist?.map(item => (
+            <div key={item} className="chip" style={{ background: 'var(--s2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px' }}>
+              {item}
+              <button onClick={() => remove(item)} style={{ color: 'var(--muted2)' }}><X size={12}/></button>
+            </div>
+          ))}
+          {(!store.focusSettings?.blocklist || store.focusSettings.blocklist.length === 0) && (
+            <div style={{ fontSize: '12px', color: 'var(--muted2)', padding: '8px 0' }}>Belum ada daftar blokir.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FocusStats() {
+  const store = useStore();
+  
+  const today = new Date().toISOString().split('T')[0];
+  const sessions = store.focusSessions;
+  
+  const workSessions = sessions.filter(s => s.type === 'work');
+  const totalMinutes = workSessions.reduce((acc, s) => acc + s.duration, 0);
+  const avgDuration = workSessions.length > 0 ? totalMinutes / workSessions.length : 0;
+  
+  // Weekly stats
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const weeklyMinutes = workSessions
+    .filter(s => {
+      const d = s.createdAt.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+      return d >= oneWeekAgo;
+    })
+    .reduce((acc, s) => acc + s.duration, 0);
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#8b5cf615' }}><BarChart3 size={16} color="var(--elang)" /></div>
+        <div className="sec-title">Analisis Fokus</div>
+      </div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+        <div className="card" style={{ margin: 0, padding: '16px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Total Deep Work</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--elang)' }}>{totalMinutes} <span style={{ fontSize: '12px', fontWeight: 400 }}>menit</span></div>
+          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Sepanjang waktu</div>
+        </div>
+        <div className="card" style={{ margin: 0, padding: '16px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>7 Hari Terakhir</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--koala)' }}>{weeklyMinutes} <span style={{ fontSize: '12px', fontWeight: 400 }}>menit</span></div>
+          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Minggu ini</div>
+        </div>
+        <div className="card" style={{ margin: 0, padding: '16px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Rata-rata Sesi</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--gold)' }}>{avgDuration.toFixed(0)} <span style={{ fontSize: '12px', fontWeight: 400 }}>menit</span></div>
+          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Per sesi kerja</div>
+        </div>
+        <div className="card" style={{ margin: 0, padding: '16px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Total Sesi</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--green)' }}>{workSessions.length} <span style={{ fontSize: '12px', fontWeight: 400 }}>sesi</span></div>
+          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Selesai</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DailyRewards() {
+  const store = useStore();
+  const [newReward, setNewReward] = useState('');
+
+  const handleAdd = async () => {
+    if (newReward.trim() && store.user) {
+      const id = Math.random().toString(36).substring(7);
+      const path = 'rewards';
+      try {
+        await setDoc(doc(db, path, id), {
+          id,
+          uid: store.user.uid,
+          text: newReward,
+          completed: false,
+          createdAt: serverTimestamp()
+        });
+        setNewReward('');
+      } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+    }
+  };
+
+  const toggleReward = async (reward: Reward) => {
+    const path = 'rewards';
+    try {
+      await updateDoc(doc(db, path, reward.id), { completed: !reward.completed });
+    } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
+  };
+
+  const deleteReward = async (id: string) => {
+    const path = 'rewards';
+    try { await deleteDoc(doc(db, path, id)); }
+    catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#f59e0b15' }}><Gift size={16} color="var(--gold)" /></div>
+        <div className="sec-title">Daily Rewards — Self-Motivation</div>
+      </div>
+      
+      <div className="card" style={{ padding: '16px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <input 
+            className="input-field" 
+            style={{ marginBottom: 0 }} 
+            placeholder="Hadiah: misal Instagram 10 menit..." 
+            value={newReward} 
+            onChange={e => setNewReward(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          />
+          <button className="btn btn-primary" onClick={handleAdd}><Plus size={18}/></button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {store.rewards.map(reward => (
+            <div key={reward.id} style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              padding: '10px', 
+              background: 'var(--s2)', 
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              opacity: reward.completed ? 0.6 : 1
+            }}>
+              <button 
+                onClick={() => toggleReward(reward)}
+                style={{ 
+                  width: '20px', height: '20px', 
+                  borderRadius: '6px', 
+                  border: '2px solid',
+                  borderColor: reward.completed ? 'var(--green)' : 'var(--muted)',
+                  background: reward.completed ? 'var(--green)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white'
+                }}
+              >
+                {reward.completed && <Check size={14} />}
+              </button>
+              <span style={{ 
+                flex: 1, 
+                fontSize: '13px', 
+                textDecoration: reward.completed ? 'line-through' : 'none',
+                color: reward.completed ? 'var(--muted2)' : 'var(--text)'
+              }}>
+                {reward.text}
+              </span>
+              <button onClick={() => deleteReward(reward.id)} style={{ color: 'var(--muted)' }}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          {store.rewards.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '12px', fontSize: '11px', color: 'var(--muted2)' }}>
+              Tentukan hadiah untuk kerja kerasmu hari ini.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FocusOverlay() {
+  const store = useStore();
+  if (!store.isFocusMode) return null;
+
+  return (
+    <div className="focus-overlay">
+      <div className="focus-timer-large">
+        <div className="timer-label">Deep Work Session Active</div>
+        <div className="timer-digits">
+          <Timer size={120} color="var(--elang)" style={{ opacity: 0.2, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: -1 }} />
+          Focus
+        </div>
+        <button className="btn btn-primary" onClick={() => store.setFocusMode(false)}>
+          Selesaikan Sesi
         </button>
       </div>
     </div>
@@ -264,20 +709,71 @@ function IncomeLadder() {
         <div className="sec-icon" style={{ background: '#f59e0b15' }}><TrendingUp size={16} color="var(--gold)" /></div>
         <div className="sec-title">Tangga Income — UMR ke Top 5%</div>
       </div>
-      <div className="ladder">
-        {store.ladder.map((item) => (
-          <motion.div key={item.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} className={`ladder-item ${store.currentLadderStage === item.id ? 'current' : ''}`} onClick={() => handleStageChange(item.id)} style={{ cursor: 'pointer' }}>
-            <div className="ladder-stage"><strong>{item.stageNum}</strong>{item.stageName}</div>
-            <div className="ladder-skill">{item.skill}</div>
-            <div className="ladder-income">{item.income}</div>
-            {store.currentLadderStage === item.id && (
-              <motion.div layoutId="current-ladder" style={{ position: 'absolute', top: 12, right: 16, fontSize: 8, letterSpacing: 2, color: 'var(--green)', fontFamily: 'monospace' }}>POSISI SEKARANG</motion.div>
-            )}
-          </motion.div>
-        ))}
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {store.ladder.map((item, index) => {
+          const isCurrent = store.currentLadderStage === item.id;
+          const isPast = parseInt(item.id) < parseInt(store.currentLadderStage);
+          
+          return (
+            <motion.div 
+              key={item.id} 
+              whileHover={{ x: 4 }}
+              onClick={() => handleStageChange(item.id)}
+              className={`card ${isCurrent ? 'current-stage' : ''}`}
+              style={{ 
+                cursor: 'pointer', 
+                margin: 0, 
+                position: 'relative',
+                borderLeft: isCurrent ? '4px solid var(--green)' : isPast ? '4px solid var(--muted)' : '4px solid transparent',
+                background: isCurrent ? 'var(--s2)' : 'var(--s1)',
+                opacity: isPast ? 0.7 : 1
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ 
+                      fontFamily: 'DM Mono', 
+                      fontSize: '10px', 
+                      background: isCurrent ? 'var(--green)' : 'var(--border2)',
+                      color: isCurrent ? 'white' : 'var(--muted2)',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      {item.stageNum}
+                    </span>
+                    <span style={{ fontWeight: 600, fontSize: '14px' }}>{item.stageName}</span>
+                  </div>
+                  <p style={{ fontSize: '12px', color: 'var(--muted2)', lineHeight: '1.5' }}>{item.skill}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: isCurrent ? 'var(--green)' : 'var(--text)' }}>{item.income}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px' }}>Per Bulan</div>
+                </div>
+              </div>
+              {isCurrent && (
+                <div style={{ 
+                  marginTop: '12px', 
+                  paddingTop: '12px', 
+                  borderTop: '1px solid var(--border)',
+                  fontSize: '11px',
+                  color: 'var(--green)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <CheckCircle2 size={12} /> Fokus saat ini: Bangun sistem dan asah skill utama.
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
       </div>
-      <div style={{ marginTop: '12px', padding: '14px 20px', background: 'var(--s1)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px', color: 'var(--muted2)', lineHeight: '1.7' }}>
-        ⚠ Top 5% nasional Indonesia ≈ Rp15–25 juta/bulan (BPS 2023). $2k/mo sudah masuk rentang ini tergantung kurs. $10k/mo = top 1%. Realistis dalam 2–3 tahun dengan eksekusi konsisten — bukan 6 bulan.
+
+      <div style={{ marginTop: '16px', padding: '16px', background: 'var(--s2)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '11px', color: 'var(--muted2)', lineHeight: '1.6' }}>
+        <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>💡 REALITY CHECK</div>
+        Top 5% nasional Indonesia ≈ Rp15–25 juta/bulan (BPS 2023). Realistis dalam 2–3 tahun dengan eksekusi konsisten — bukan skema cepat kaya.
       </div>
     </div>
   );
@@ -468,51 +964,75 @@ function WeeklyReview() {
       <div className="sec-header">
         <div className="sec-icon" style={{ background: '#8b5cf615' }}><ClipboardList size={16} color="var(--elang)" /></div>
         <div className="sec-title">
-          <span>Review Mingguan — 15 Menit, Setiap Minggu</span>
-          <button className="btn btn-sm" onClick={() => setAdding(!adding)}>
-            {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Tambah'}
+          <span>Review Mingguan</span>
+          <button className="btn btn-sm btn-primary" onClick={() => setAdding(!adding)}>
+            {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Tulis Review'}
           </button>
-        </div>
-        <div className="sec-ref">Locke & Latham · Feedback Loop</div>
-      </div>
-
-      <div className="review-grid" style={{ marginBottom: '24px' }}>
-        <div className="rv-card">
-          <div className="rv-num">01</div>
-          <div className="rv-q">Apa yang sudah aku selesaikan minggu ini?</div>
-          <div className="rv-hint">Tulis angka konkret: berapa video dibuat, berapa views, berapa income. Singa butuh bukti progress nyata.</div>
-        </div>
-        <div className="rv-card">
-          <div className="rv-num">02</div>
-          <div className="rv-q">Apa satu hal yang menghambat terbesar?</div>
-          <div className="rv-hint">Hanya satu — bukan daftar panjang. Elang cenderung over-analyze. Batasi ke satu hambatan yang paling menentukan.</div>
-        </div>
-        <div className="rv-card">
-          <div className="rv-num">03</div>
-          <div className="rv-q">Satu aksi konkret untuk minggu depan?</div>
-          <div className="rv-hint">Tulis dalam format implementation intention: "Jika X maka Y." Koala butuh rencana yang sudah jelas sebelum minggu dimulai.</div>
         </div>
       </div>
 
       <AnimatePresence>
         {adding && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="card mb-4">
-            <div className="form-group"><label className="form-label">01. Apa yang sudah aku selesaikan?</label><textarea className="input-field" rows={2} value={form.q1} onChange={e => setForm({...form, q1: e.target.value})} /></div>
-            <div className="form-group"><label className="form-label">02. Apa hambatan terbesar?</label><textarea className="input-field" rows={2} value={form.q2} onChange={e => setForm({...form, q2: e.target.value})} /></div>
-            <div className="form-group"><label className="form-label">03. Satu aksi konkret?</label><textarea className="input-field" rows={2} value={form.q3} onChange={e => setForm({...form, q3: e.target.value})} /></div>
-            <button className="btn btn-primary" onClick={handleAdd}>Simpan Review</button>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="card mb-6" style={{ background: 'var(--s2)', border: '1px solid var(--elang)30' }}>
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Refleksi Mingguan</h4>
+              <p style={{ fontSize: '11px', color: 'var(--muted2)' }}>Locke & Latham · Feedback Loop untuk performa puncak.</p>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">01. Apa yang sudah aku selesaikan minggu ini?</label>
+              <textarea className="input-field" rows={3} placeholder="Tulis angka konkret: video dibuat, views, income..." value={form.q1} onChange={e => setForm({...form, q1: e.target.value})} />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">02. Apa satu hal yang menghambat terbesar?</label>
+              <textarea className="input-field" rows={3} placeholder="Batasi ke satu hambatan yang paling menentukan..." value={form.q2} onChange={e => setForm({...form, q2: e.target.value})} />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">03. Satu aksi konkret untuk minggu depan?</label>
+              <textarea className="input-field" rows={3} placeholder='Format: "Jika X maka Y"...' value={form.q3} onChange={e => setForm({...form, q3: e.target.value})} />
+            </div>
+            
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={handleAdd}>Simpan Review Mingguan</button>
           </motion.div>
         )}
       </AnimatePresence>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {store.weeklyReviews.length === 0 && !adding && (
+          <div className="card" style={{ textAlign: 'center', padding: '40px', borderStyle: 'dashed' }}>
+            <div style={{ fontSize: '24px', marginBottom: '12px' }}>📝</div>
+            <div style={{ fontSize: '14px', color: 'var(--muted2)' }}>Belum ada review mingguan. Mulai tulis untuk melacak pertumbuhan Anda.</div>
+          </div>
+        )}
+        
         <AnimatePresence initial={false}>
           {store.weeklyReviews.map((review) => (
-            <motion.div key={review.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card" style={{ position: 'relative' }}>
-              <button className="btn btn-danger" style={{ position: 'absolute', top: '16px', right: '16px', padding: '6px' }} onClick={() => handleDelete(review.id)}><Trash2 size={14}/></button>
-              <div className="review-grid" style={{ marginTop: '20px' }}>
-                <div><div className="rv-num">01</div><div className="rv-q">Penyelesaian</div><div className="rv-hint">{review.q1}</div></div>
-                <div><div className="rv-num">02</div><div className="rv-q">Hambatan</div><div className="rv-hint">{review.q2}</div></div>
-                <div><div className="rv-num">03</div><div className="rv-q">Aksi</div><div className="rv-hint">{review.q3}</div></div>
+            <motion.div key={review.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--elang)' }}></div>
+                  <span style={{ fontFamily: 'DM Mono', fontSize: '11px', color: 'var(--muted2)' }}>
+                    {new Date(review.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+                <button className="btn btn-danger" style={{ padding: '6px' }} onClick={() => handleDelete(review.id)}><Trash2 size={14}/></button>
+              </div>
+
+              <div style={{ display: 'grid', gap: '20px' }}>
+                <div style={{ borderLeft: '2px solid var(--border)', paddingLeft: '16px' }}>
+                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '4px' }}>Pencapaian</div>
+                  <div style={{ fontSize: '13px', lineHeight: '1.6' }}>{review.q1}</div>
+                </div>
+                <div style={{ borderLeft: '2px solid var(--border)', paddingLeft: '16px' }}>
+                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '4px' }}>Hambatan</div>
+                  <div style={{ fontSize: '13px', lineHeight: '1.6' }}>{review.q2}</div>
+                </div>
+                <div style={{ borderLeft: '2px solid var(--border)', paddingLeft: '16px' }}>
+                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--muted)', marginBottom: '4px' }}>Aksi Selanjutnya</div>
+                  <div style={{ fontSize: '13px', lineHeight: '1.6', color: 'var(--koala)', fontWeight: 500 }}>{review.q3}</div>
+                </div>
               </div>
             </motion.div>
           ))}
@@ -699,35 +1219,52 @@ function QuickTasks() {
   const [text, setText] = useState('');
 
   const handleAdd = async () => {
-    if (text && store.user) {
-      const id = Math.random().toString(36).substring(7);
-      const path = 'quickTasks';
-      try {
-        await setDoc(doc(db, path, id), { id, uid: store.user.uid, text, completed: false, createdAt: serverTimestamp() });
-        setText('');
-        setAdding(false);
-      } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+    if (!text.trim()) return;
+    if (!store.user) {
+      console.error("No user found in store");
+      return;
+    }
+
+    const id = Math.random().toString(36).substring(7);
+    const path = 'quickTasks';
+    const newTask = { 
+      id, 
+      uid: store.user.uid, 
+      text: text.trim(), 
+      completed: false, 
+      createdAt: serverTimestamp() 
+    };
+
+    try {
+      console.log("Adding task:", newTask);
+      await setDoc(doc(db, path, id), newTask);
+      setText('');
+      setAdding(false);
+    } catch (e) { 
+      console.error("Error adding task:", e);
+      handleFirestoreError(e, OperationType.WRITE, path); 
     }
   };
 
   const toggleTask = async (task: any) => {
+    if (!store.user) return;
     const path = `quickTasks/${task.id}`;
     try {
       await updateDoc(doc(db, 'quickTasks', task.id), { completed: !task.completed });
       
       // Update DailyStats count
-      if (store.user) {
-        const today = new Date().toISOString().split('T')[0];
-        const stats = store.dailyStats.find(s => s.date === today);
-        const id = stats?.id || `${store.user.uid}_${today}`;
-        const newQuickCount = !task.completed 
-          ? (stats?.quickCompleted || 0) + 1 
-          : Math.max(0, (stats?.quickCompleted || 0) - 1);
-        
-        await setDoc(doc(db, 'dailyStats', id), { 
-          quickCompleted: newQuickCount 
-        }, { merge: true });
-      }
+      const today = new Date().toISOString().split('T')[0];
+      const stats = store.dailyStats.find(s => s.date === today);
+      const id = stats?.id || `${store.user.uid}_${today}`;
+      const newQuickCount = !task.completed 
+        ? (stats?.quickCompleted || 0) + 1 
+        : Math.max(0, (stats?.quickCompleted || 0) - 1);
+      
+      await setDoc(doc(db, id.includes('_') ? 'dailyStats' : 'dailyStats', id), { 
+        uid: store.user.uid,
+        date: today,
+        quickCompleted: newQuickCount 
+      }, { merge: true });
     } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
   };
 
@@ -761,7 +1298,7 @@ function QuickTasks() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <AnimatePresence initial={false}>
-          {store.quickTasks.sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map((task) => (
+          {[...store.quickTasks].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1)).map((task) => (
             <motion.div key={task.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', opacity: task.completed ? 0.6 : 1 }}>
               <button onClick={() => toggleTask(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: task.completed ? 'var(--green)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
                 {task.completed ? <CheckCircle2 size={20} /> : <Square size={20} />}
@@ -952,6 +1489,34 @@ export default function App() {
       if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'dailyStats');
     });
 
+    const qFocusGoals = query(collection(db, 'focusGoals'), where('uid', '==', user.uid));
+    const unsubFocusGoals = onSnapshot(qFocusGoals, (snap) => {
+      store.setFocusGoals(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'focusGoals');
+    });
+
+    const qFocusSessions = query(collection(db, 'focusSessions'), where('uid', '==', user.uid));
+    const unsubFocusSessions = onSnapshot(qFocusSessions, (snap) => {
+      store.setFocusSessions(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'focusSessions');
+    });
+
+    const qFocusSettings = doc(db, 'focusSettings', user.uid);
+    const unsubFocusSettings = onSnapshot(qFocusSettings, (doc) => {
+      if (doc.exists()) store.setFocusSettings(doc.data() as any);
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.GET, 'focusSettings');
+    });
+
+    const qRewards = query(collection(db, 'rewards'), where('uid', '==', user.uid));
+    const unsubRewards = onSnapshot(qRewards, (snap) => {
+      store.setRewards(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'rewards');
+    });
+
     return () => {
       unsubIntentions();
       unsubBlocks();
@@ -960,8 +1525,20 @@ export default function App() {
       unsubTrackers();
       unsubQuickTasks();
       unsubDailyStats();
+      unsubFocusGoals();
+      unsubFocusSessions();
+      unsubFocusSettings();
+      unsubRewards();
     };
   }, [store.user]);
+
+  useEffect(() => {
+    if (store.isFocusMode) {
+      document.body.classList.add('focus-mode');
+    } else {
+      document.body.classList.remove('focus-mode');
+    }
+  }, [store.isFocusMode]);
 
   if (!store.isAuthReady) {
     return <div className="wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>Memuat...</div>;
@@ -972,18 +1549,32 @@ export default function App() {
   }
 
   return (
-    <div className="wrap">
-      <Navbar />
-      <Hero />
-      <ResearchBase />
-      <ImplementationIntentions />
-      <IncomeLadder />
-      <DailyAudit />
-      <QuickTasks />
-      <DailySystem />
-      <ProgressTracker />
-      <WeeklyReview />
-      <MindsetReframe />
-    </div>
+    <ErrorBoundary>
+      <FocusOverlay />
+      <div className={`wrap ${store.isFocusMode ? 'focus-active' : ''}`}>
+        <Navbar />
+        <Hero />
+        <div className="main-grid">
+          <div>
+            <PomodoroTimer />
+            <ResearchBase />
+            <ImplementationIntentions />
+            <IncomeLadder />
+            <DailyAudit />
+            <QuickTasks />
+            <BlocklistManager />
+          </div>
+          <div className="sticky-side">
+            <FocusGoalTracker />
+            <FocusStats />
+            <DailyRewards />
+            <DailySystem />
+            <ProgressTracker />
+            <WeeklyReview />
+            <MindsetReframe />
+          </div>
+        </div>
+      </div>
+    </ErrorBoundary>
   );
 }
