@@ -239,5 +239,12 @@ service cloud.firestore {
       allow delete: if isDocOwner();
     }
 
+    match /ladder/{itemId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner();
+      allow update: if isDocOwner() && isRequestOwner();
+      allow delete: if isDocOwner();
+    }
+
   }
 }

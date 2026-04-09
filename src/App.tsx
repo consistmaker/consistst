@@ -608,9 +608,19 @@ function Navbar() {
 
 function PomodoroTimer() {
   const store = useStore();
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const settings = store.focusSettings || { workDuration: 25, breakDuration: 5 };
+  const [timeLeft, setTimeLeft] = useState(settings.workDuration * 60);
   const [isActive, setIsActive] = useState(false);
   const [mode, setMode] = useState<'work' | 'break'>('work');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ work: settings.workDuration, break: settings.breakDuration });
+
+  // Sync timeLeft when settings change (if not active)
+  useEffect(() => {
+    if (!isActive) {
+      setTimeLeft(mode === 'work' ? settings.workDuration * 60 : settings.breakDuration * 60);
+    }
+  }, [settings.workDuration, settings.breakDuration, mode, isActive]);
 
   useEffect(() => {
     let interval: any = null;
@@ -627,7 +637,7 @@ function PomodoroTimer() {
 
   const handleComplete = async () => {
     if (!store.user) return;
-    const duration = mode === 'work' ? 25 : 5;
+    const duration = mode === 'work' ? settings.workDuration : settings.breakDuration;
     const id = Math.random().toString(36).substring(7);
     try {
       await setDoc(doc(db, 'focusSessions', id), {
@@ -637,16 +647,32 @@ function PomodoroTimer() {
         type: mode,
         createdAt: serverTimestamp()
       });
-      alert(`${mode === 'work' ? 'Sesi Kerja' : 'Istirahat'} Selesai!`);
-      setMode(mode === 'work' ? 'break' : 'work');
-      setTimeLeft(mode === 'work' ? 5 * 60 : 25 * 60);
+      const nextMode = mode === 'work' ? 'break' : 'work';
+      setMode(nextMode);
+      setTimeLeft((nextMode === 'work' ? settings.workDuration : settings.breakDuration) * 60);
     } catch (e) { console.error(e); }
   };
 
   const toggle = () => setIsActive(!isActive);
   const reset = () => {
     setIsActive(false);
-    setTimeLeft(mode === 'work' ? 25 * 60 : 5 * 60);
+    setTimeLeft(mode === 'work' ? settings.workDuration * 60 : settings.breakDuration * 60);
+  };
+
+  const handleSaveSettings = async () => {
+    if (!store.user) return;
+    const workVal = Math.max(1, Math.min(120, editForm.work));
+    const breakVal = Math.max(1, Math.min(60, editForm.break));
+    const path = 'focusSettings';
+    try {
+      await setDoc(doc(db, path, store.user.uid), {
+        ...settings,
+        uid: store.user.uid,
+        workDuration: workVal,
+        breakDuration: breakVal
+      }, { merge: true });
+      setIsEditing(false);
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
   };
 
   const formatTime = (seconds: number) => {
@@ -658,17 +684,79 @@ function PomodoroTimer() {
   return (
     <div className="pomo-widget">
       <div className="pomo-display">
-        <div className="pomo-time">{formatTime(timeLeft)}</div>
-        <div className="pomo-status">{mode === 'work' ? 'Deep Work Session' : 'Short Break'}</div>
+        {isEditing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textAlign: 'center' }}>CUSTOMIZE DURATIONS</div>
+            
+            <div className="flex-row" style={{ gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>WORK (MIN)</label>
+                <input 
+                  type="number" 
+                  className="input-field" 
+                  value={editForm.work} 
+                  onChange={e => setEditForm({...editForm, work: parseInt(e.target.value) || 0})}
+                  style={{ textAlign: 'center' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>BREAK (MIN)</label>
+                <input 
+                  type="number" 
+                  className="input-field" 
+                  value={editForm.break} 
+                  onChange={e => setEditForm({...editForm, break: parseInt(e.target.value) || 0})}
+                  style={{ textAlign: 'center' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => setIsEditing(false)}>Batal</button>
+              <button className="btn btn-sm btn-primary" style={{ flex: 1 }} onClick={handleSaveSettings}>Simpan</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="pomo-time" onClick={() => setIsEditing(true)} style={{ cursor: 'pointer' }}>
+              {formatTime(timeLeft)}
+            </div>
+            <div className="pomo-status">
+              <span style={{ color: mode === 'work' ? 'var(--primary)' : 'var(--green)', fontWeight: 600 }}>
+                {mode === 'work' ? 'Deep Work Session' : 'Short Break'}
+              </span>
+              <button 
+                style={{ background: 'none', border: 'none', color: 'var(--muted)', marginLeft: '8px', cursor: 'pointer' }}
+                onClick={() => { setEditForm({ work: settings.workDuration, break: settings.breakDuration }); setIsEditing(true); }}
+              >
+                <Settings size={12} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
-      <div className="pomo-controls">
-        <button className={`pomo-btn ${isActive ? 'active' : ''}`} onClick={toggle}>
-          {isActive ? <Pause size={20} /> : <Play size={20} />}
-        </button>
-        <button className="pomo-btn" onClick={reset}>
-          <RotateCcw size={20} />
-        </button>
-      </div>
+      {!isEditing && (
+        <div className="pomo-controls">
+          <button className={`pomo-btn ${isActive ? 'active' : ''}`} onClick={toggle}>
+            {isActive ? <Pause size={20} /> : <Play size={20} />}
+          </button>
+          <button className="pomo-btn" onClick={reset}>
+            <RotateCcw size={20} />
+          </button>
+          <button 
+            className="pomo-btn" 
+            onClick={() => {
+              const nextMode = mode === 'work' ? 'break' : 'work';
+              setMode(nextMode);
+              setIsActive(false);
+              setTimeLeft((nextMode === 'work' ? settings.workDuration : settings.breakDuration) * 60);
+            }}
+            title="Switch Mode"
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1256,6 +1344,8 @@ function ImplementationIntentions() {
 
 function IncomeLadder() {
   const store = useStore();
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ id: '', stageNum: '', stageName: '', skill: '', income: '' });
   
   const handleStageChange = async (id: string) => {
     store.setCurrentLadderStage(id);
@@ -1266,9 +1356,47 @@ function IncomeLadder() {
     }
   };
 
+  const handleSave = async () => {
+    if (store.user && editForm.stageName) {
+      const id = editForm.id || Math.random().toString(36).substring(7);
+      const path = 'ladder';
+      try {
+        await setDoc(doc(db, path, id), { ...editForm, id, uid: store.user.uid });
+        setEditing(false);
+        setEditForm({ id: '', stageNum: '', stageName: '', skill: '', income: '' });
+      } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const path = 'ladder';
+    try { await deleteDoc(doc(db, path, id)); }
+    catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  };
+
   return (
     <div className="sec">
-      <div className="sec-label">Proyeksi Income — Realistis Berbasis Sistem Ini</div>
+      <div className="sec-header">
+        <div className="sec-label">Proyeksi Income — Realistis Berbasis Sistem Ini</div>
+        <button className="btn btn-sm" onClick={() => setEditing(!editing)}>
+          {editing ? 'Batal' : <Plus size={14} />}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {editing && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card mb-4">
+            <div className="flex-row">
+              <input className="input-field" placeholder="Tahap (Tahap 1)" value={editForm.stageNum} onChange={e => setEditForm({...editForm, stageNum: e.target.value})} />
+              <input className="input-field" placeholder="Nama (Sekarang)" value={editForm.stageName} onChange={e => setEditForm({...editForm, stageName: e.target.value})} />
+            </div>
+            <textarea className="input-field" placeholder="Deskripsi Skill/Sistem" value={editForm.skill} onChange={e => setEditForm({...editForm, skill: e.target.value})} />
+            <input className="input-field" placeholder="Target Income (UMR)" value={editForm.income} onChange={e => setEditForm({...editForm, income: e.target.value})} />
+            <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSave}>Simpan Tahap</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="projection">
         {store.ladder.map((item) => {
           const isCurrent = store.currentLadderStage === item.id;
@@ -1277,20 +1405,23 @@ function IncomeLadder() {
           return (
             <motion.div 
               key={item.id} 
-              onClick={() => handleStageChange(item.id)}
               className={`proj-row ${isCurrent ? 'now' : ''}`}
               style={{ 
-                cursor: 'pointer',
-                opacity: isPast ? 0.6 : 1
+                opacity: isPast ? 0.6 : 1,
+                position: 'relative'
               }}
             >
-              <div className="proj-phase">
+              <div className="proj-phase" onClick={() => handleStageChange(item.id)} style={{ cursor: 'pointer' }}>
                 <strong>{item.stageName}</strong>
                 {item.stageNum}
               </div>
-              <div className="proj-desc">{item.skill}</div>
+              <div className="proj-desc" onClick={() => handleStageChange(item.id)} style={{ cursor: 'pointer' }}>{item.skill}</div>
               <div className="proj-income" style={{ color: isCurrent ? 'var(--singa)' : 'var(--muted)' }}>
                 {item.income}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                  <button style={{ background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer' }} onClick={() => { setEditForm(item); setEditing(true); }}><Edit2 size={12}/></button>
+                  <button style={{ background:'transparent', border:'none', color:'var(--red)', cursor:'pointer' }} onClick={() => handleDelete(item.id)}><Trash2 size={12}/></button>
+                </div>
               </div>
             </motion.div>
           );
@@ -2048,6 +2179,14 @@ async function seedUserData(uid: string) {
     { id: 't4', num: '04', title: 'Jika Gagal — Tidak Apa-Apa', content: 'Shame loop adalah musuh terbesar. Jika protokol gagal, jangan tambah rasa bersalah. Catat trigger-nya: jam berapa, sedang apa, stres tentang apa. Data ini penting untuk perbaikan sistem, bukan untuk menghukum diri.' }
   ];
 
+  // Ladder
+  const ladder = [
+    { id: '1', stageNum: 'Tahap 1', stageName: 'Sekarang', skill: 'Kerja + Survey = income primer stabil. YouTube = 0. Sistem baru dimulai. Kuliah online berjalan.', income: 'UMR' },
+    { id: '2', stageNum: 'Tahap 2', stageName: 'Growth', skill: 'YouTube mulai menghasilkan $10-$50/bln. Kerja utama tetap jalan. Sistem makin disiplin.', income: 'UMR + $50' },
+    { id: '3', stageNum: 'Tahap 3', stageName: 'Scale', skill: 'YouTube $200-$500/bln. Mulai delegasi editing. Kuliah hampir selesai.', income: '2x UMR' },
+    { id: '4', stageNum: 'Tahap 4', stageName: 'Freedom', skill: 'YouTube > $1000/bln. Fokus penuh ke sistem kreatif. Investasi ke aset lain.', income: 'Top 5%' }
+  ];
+
   for (const item of intentions) {
     const id = Math.random().toString(36).substring(7);
     await setDoc(doc(db, 'intentions', id), { ...item, id, uid, createdAt: serverTimestamp() });
@@ -2077,6 +2216,17 @@ async function seedUserData(uid: string) {
   for (const item of triggerSteps) {
     await setDoc(doc(db, 'triggerSteps', item.id), { ...item, uid });
   }
+  for (const item of ladder) {
+    await setDoc(doc(db, 'ladder', item.id), { ...item, uid });
+  }
+
+  // Focus Settings
+  await setDoc(doc(db, 'focusSettings', uid), {
+    uid,
+    blocklist: [],
+    workDuration: 25,
+    breakDuration: 5
+  });
 
   // Initial Daily Stats
   const today = new Date().toISOString().split('T')[0];
@@ -2244,6 +2394,15 @@ export default function App() {
       if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'triggerSteps');
     });
 
+    const qLadder = query(collection(db, 'ladder'), where('uid', '==', user.uid));
+    const unsubLadder = onSnapshot(qLadder, (snap) => {
+      if (snap.docs.length > 0) {
+        store.setLadder(snap.docs.map(d => d.data() as any).sort((a, b) => a.id.localeCompare(b.id)));
+      }
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'ladder');
+    });
+
     return () => {
       unsubIntentions();
       unsubBlocks();
@@ -2261,6 +2420,7 @@ export default function App() {
       unsubNotes();
       unsubMatrix();
       unsubTrigger();
+      unsubLadder();
     };
   }, [store.user]);
 

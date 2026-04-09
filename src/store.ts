@@ -165,6 +165,7 @@ interface AppState {
   setIntentions: (intentions: Intention[]) => void;
   setDailyBlocks: (blocks: DailyBlock[]) => void;
   setWeeklyReviews: (reviews: WeeklyReviewType[]) => void;
+  setLadder: (ladder: LadderItem[]) => void;
   setReframes: (reframes: Reframe[]) => void;
   setTrackers: (trackers: Tracker[]) => void;
   setQuickTasks: (tasks: QuickTask[]) => void;
@@ -236,6 +237,7 @@ export const useStore = create<AppState>()(
       setIntentions: (intentions) => set({ intentions }),
       setDailyBlocks: (dailyBlocks) => set({ dailyBlocks }),
       setWeeklyReviews: (weeklyReviews) => set({ weeklyReviews }),
+      setLadder: (ladder) => set({ ladder }),
       setReframes: (reframes) => set({ reframes }),
       setTrackers: (trackers) => set({ trackers }),
       setQuickTasks: (quickTasks) => set({ quickTasks }),
