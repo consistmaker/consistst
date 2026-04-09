@@ -56,6 +56,7 @@ export interface QuickTask {
   uid: string;
   text: string;
   completed: boolean;
+  lastCompletedDate?: string;
   createdAt?: any;
 }
 
@@ -103,6 +104,7 @@ export interface PinnedAction {
   text: string;
   type: 'daily' | 'weekly';
   completed: boolean;
+  lastCompletedDate?: string;
   createdAt: any;
 }
 

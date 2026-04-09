@@ -40,6 +40,19 @@ import {
 
 // --- Helpers ---
 
+const getTodayStr = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const getStartOfWeekStr = () => {
+  const now = new Date();
+  const day = now.getDay(); // 0 (Sun) to 6 (Sat)
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  const monday = new Date(now.setDate(diff));
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+};
+
 const parseDate = (dateVal: any): Date => {
   if (!dateVal) return new Date();
   if (dateVal.toDate) return dateVal.toDate();
@@ -159,6 +172,7 @@ function PinnedActions() {
         text: text.trim(),
         type,
         completed: false,
+        lastCompletedDate: '',
         createdAt: serverTimestamp()
       });
       setText('');
@@ -171,8 +185,12 @@ function PinnedActions() {
 
   const toggleComplete = async (action: PinnedAction) => {
     const path = `pinnedActions/${action.id}`;
+    const today = getTodayStr();
     try {
-      await updateDoc(doc(db, 'pinnedActions', action.id), { completed: !action.completed });
+      await updateDoc(doc(db, 'pinnedActions', action.id), { 
+        completed: !action.completed,
+        lastCompletedDate: !action.completed ? today : ''
+      });
     } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
   };
 
@@ -839,9 +857,12 @@ function BlocklistManager() {
 
 function FocusStats() {
   const store = useStore();
-  
-  const today = new Date().toISOString().split('T')[0];
-  const sessions = store.focusSessions;
+  const today = getTodayStr();
+  const sessions = store.focusSessions.filter(s => {
+    const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+    const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return dStr === today;
+  });
   
   const workSessions = sessions.filter(s => s.type === 'work');
   const totalMinutes = workSessions.reduce((acc, s) => acc + s.duration, 0);
@@ -896,7 +917,7 @@ function DailyRewards() {
 
   const handleAdd = async () => {
     if (newReward.trim() && store.user) {
-      const id = Math.random().toString(36).substring(7);
+      const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
       const path = 'rewards';
       try {
         await setDoc(doc(db, path, id), {
@@ -904,6 +925,7 @@ function DailyRewards() {
           uid: store.user.uid,
           text: newReward,
           completed: false,
+          lastCompletedDate: '',
           createdAt: serverTimestamp()
         });
         setNewReward('');
@@ -912,9 +934,13 @@ function DailyRewards() {
   };
 
   const toggleReward = async (reward: Reward) => {
-    const path = 'rewards';
+    const path = `rewards/${reward.id}`;
+    const today = getTodayStr();
     try {
-      await updateDoc(doc(db, path, reward.id), { completed: !reward.completed });
+      await updateDoc(doc(db, 'rewards', reward.id), { 
+        completed: !reward.completed,
+        lastCompletedDate: !reward.completed ? today : ''
+      });
     } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
   };
 
@@ -1498,7 +1524,7 @@ function ProgressTracker() {
     catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayStr();
   const today = new Date();
   
   const getStats = (history: string[]) => {
@@ -1568,10 +1594,10 @@ function WeeklyReview() {
 
   const handleAdd = async () => {
     if ((form.q1 || form.q2 || form.q3) && store.user) {
-      const id = Math.random().toString(36).substring(7);
+      const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
       const path = 'weeklyReviews';
       try {
-        await setDoc(doc(db, path, id), { ...form, id, uid: store.user.uid, date: new Date().toISOString() });
+        await setDoc(doc(db, path, id), { ...form, id, uid: store.user.uid, date: getTodayStr() });
         setForm({ q1: '', q2: '', q3: '' });
         setAdding(false);
       } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
@@ -1829,8 +1855,8 @@ function MindsetReframe() {
 
 function DailyAudit() {
   const store = useStore();
-  const [viewDate, setViewDate] = useState(new Date().toISOString().split('T')[0]);
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayStr();
+  const [viewDate, setViewDate] = useState(today);
   const stats = store.dailyStats.find(s => s.date === viewDate);
 
   const mainTasks = store.dailyBlocks.flatMap(b => b.tasks.map((t, i) => ({ id: `${b.id}:${i}`, text: t, blockName: b.name })));
@@ -1843,7 +1869,7 @@ function DailyAudit() {
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      return d.toISOString().split('T')[0];
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     });
 
     return last7Days.map(date => {
@@ -1994,6 +2020,7 @@ function QuickTasks() {
       uid: store.user.uid, 
       text: text.trim(), 
       completed: false, 
+      lastCompletedDate: '',
       createdAt: serverTimestamp() 
     };
 
@@ -2010,11 +2037,14 @@ function QuickTasks() {
   const toggleTask = async (task: any) => {
     if (!store.user) return;
     const path = `quickTasks/${task.id}`;
+    const today = getTodayStr();
     try {
-      await updateDoc(doc(db, 'quickTasks', task.id), { completed: !task.completed });
+      await updateDoc(doc(db, 'quickTasks', task.id), { 
+        completed: !task.completed,
+        lastCompletedDate: !task.completed ? today : ''
+      });
       
       // Update DailyStats count
-      const today = new Date().toISOString().split('T')[0];
       const stats = store.dailyStats.find(s => s.date === today);
       const id = stats?.id || `${store.user.uid}_${today}`;
       const newQuickCount = !task.completed 
@@ -2207,7 +2237,7 @@ async function seedUserData(uid: string) {
   });
 
   // Initial Daily Stats
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayStr();
   const statId = `${uid}_${today}`;
   await setDoc(doc(db, 'dailyStats', statId), {
     id: statId,
@@ -2220,9 +2250,56 @@ async function seedUserData(uid: string) {
   });
 }
 
+const getStartOfWeekStrFromDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+};
+
 export default function App() {
   const store = useStore();
   const [showAnalytics, setShowAnalytics] = useState(false);
+
+  useEffect(() => {
+    if (!store.user) return;
+    const today = getTodayStr();
+    const currentWeek = getStartOfWeekStr();
+
+    // Check for Daily/Weekly Resets
+    const resetTasks = async () => {
+      // Reset Pinned Actions
+      for (const action of store.pinnedActions) {
+        if (action.completed) {
+          if (action.type === 'daily' && action.lastCompletedDate !== today) {
+            await updateDoc(doc(db, 'pinnedActions', action.id), { completed: false });
+          } else if (action.type === 'weekly') {
+            const lastWeek = action.lastCompletedDate ? getStartOfWeekStrFromDate(action.lastCompletedDate) : '';
+            if (lastWeek !== currentWeek) {
+              await updateDoc(doc(db, 'pinnedActions', action.id), { completed: false });
+            }
+          }
+        }
+      }
+
+      // Reset Quick Tasks (if they were completed on a previous day)
+      for (const task of store.quickTasks) {
+        if (task.completed && task.lastCompletedDate && task.lastCompletedDate !== today) {
+          await updateDoc(doc(db, 'quickTasks', task.id), { completed: false });
+        }
+      }
+
+      // Reset Rewards
+      for (const reward of store.rewards) {
+        if (reward.completed && (reward as any).lastCompletedDate && (reward as any).lastCompletedDate !== today) {
+          await updateDoc(doc(db, 'rewards', reward.id), { completed: false });
+        }
+      }
+    };
+
+    resetTasks();
+  }, [store.user, store.pinnedActions.length, store.quickTasks.length, store.rewards.length]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
