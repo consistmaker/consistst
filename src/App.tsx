@@ -1761,17 +1761,64 @@ function MindsetReframe() {
       <div className="reframe-grid">
         <AnimatePresence>
           {adding && (
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="rf-row" style={{ background: 'var(--s2)' }}>
-              <input className="input-field" style={{ marginBottom: 0 }} placeholder="Mindset lama..." value={form.old} onChange={e => setForm({...form, old: e.target.value})} />
-              <div className="rf-arrow">→</div>
-              <input className="input-field" style={{ marginBottom: 0 }} placeholder="Mindset baru..." value={form.new} onChange={e => setForm({...form, new: e.target.value})} />
-              <button className="btn btn-primary" onClick={handleAdd}>Simpan</button>
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, y: -10 }} 
+              className="rf-form"
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="rf-section">
+                  <label className="rf-label rf-old-label">Pikiran Lama (Stres/Negatif)</label>
+                  <textarea 
+                    className="input-field" 
+                    rows={2}
+                    placeholder="Contoh: 'Aku tidak akan pernah bisa...'" 
+                    value={form.old} 
+                    onChange={e => setForm({...form, old: e.target.value})} 
+                  />
+                </div>
+                <div className="rf-section">
+                  <label className="rf-label rf-new-label">Pikiran Baru (Reframe/Positif)</label>
+                  <textarea 
+                    className="input-field" 
+                    rows={2}
+                    placeholder="Contoh: 'Aku sedang belajar untuk...'" 
+                    value={form.new} 
+                    onChange={e => setForm({...form, new: e.target.value})} 
+                  />
+                </div>
+              </div>
+              <button className="btn btn-primary" style={{ alignSelf: 'flex-end' }} onClick={handleAdd}>Simpan Reframe</button>
             </motion.div>
           )}
                {store.reframes.map((item) => (
-            <motion.div key={item.id} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="rf-row">
-              <div className="rf-old">{item.old}</div><div className="rf-arrow">→</div><div className="rf-new">{item.new}</div>
-              <button className="btn btn-danger" style={{ padding: '6px' }} onClick={() => handleDelete(item.id)}><Trash2 size={14}/></button>
+            <motion.div 
+              key={item.id} 
+              layout
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }} 
+              className="rf-card"
+            >
+              <div className="rf-section">
+                <div className="rf-label rf-old-label">Dulu</div>
+                <div className="rf-old-text">{item.old}</div>
+              </div>
+              
+              <div className="rf-divider"></div>
+              
+              <div className="rf-section">
+                <div className="rf-label rf-new-label">Sekarang</div>
+                <div className="rf-new-text">{item.new}</div>
+              </div>
+
+              <button 
+                className="btn btn-danger rf-delete" 
+                onClick={() => handleDelete(item.id)}
+              >
+                <Trash2 size={14}/>
+              </button>
             </motion.div>
           ))}
         </AnimatePresence>

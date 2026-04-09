@@ -702,34 +702,99 @@ body::before {
 
 /* --- Mindset Reframe --- */
 .reframe-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.rf-row {
   display: grid;
-  grid-template-columns: 1fr 32px 1fr 40px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
-  align-items: center;
+}
+
+.rf-card {
   background: var(--s1);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 20px;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
-.rf-old {
+
+.rf-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.rf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rf-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rf-old-label { color: var(--muted2); }
+.rf-new-label { color: var(--primary); }
+
+.rf-old-text {
   font-size: 13px;
   color: var(--muted2);
-  text-decoration: line-through;
+  line-height: 1.5;
+  font-style: italic;
 }
-.rf-arrow {
-  text-align: center;
-  color: var(--primary);
-  font-weight: 800;
-}
-.rf-new {
-  font-size: 14px;
+
+.rf-new-text {
+  font-size: 15px;
   font-weight: 600;
   color: var(--text);
+  line-height: 1.5;
+}
+
+.rf-divider {
+  height: 1px;
+  background: var(--border);
+  position: relative;
+  margin: 4px 0;
+}
+
+.rf-divider::after {
+  content: '↓';
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  background: var(--s1);
+  padding: 0 8px;
+  color: var(--primary);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.rf-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.rf-card:hover .rf-delete {
+  opacity: 1;
+}
+
+.rf-form {
+  grid-column: 1 / -1;
+  background: var(--s2);
+  border: 2px dashed var(--border2);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* --- Progress Tracker --- */
