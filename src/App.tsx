@@ -8,7 +8,7 @@ import {
   Plus, Trash2, Microscope, Zap, TrendingUp, RefreshCw, ClipboardList, 
   Repeat, BarChart3, CheckCircle2, X, LogIn, LogOut, User as UserIcon,
   CheckSquare, Square, Play, Pause, RotateCcw, Target, Shield, ShieldOff,
-  Eye, EyeOff, Timer, Edit2, Gift, Check
+  Eye, EyeOff, Timer, Edit2, Gift, Check, History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -959,6 +959,8 @@ function WeeklyReview() {
     catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
   };
 
+  const todayStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
   return (
     <div className="sec">
       <div className="sec-header">
@@ -975,7 +977,7 @@ function WeeklyReview() {
         {adding && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="card mb-6" style={{ background: 'var(--s2)', border: '1px solid var(--elang)30' }}>
             <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Refleksi Mingguan</h4>
+              <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>Refleksi Mingguan — {todayStr}</h4>
               <p style={{ fontSize: '11px', color: 'var(--muted2)' }}>Locke & Latham · Feedback Loop untuk performa puncak.</p>
             </div>
             
@@ -1008,7 +1010,7 @@ function WeeklyReview() {
         )}
         
         <AnimatePresence initial={false}>
-          {store.weeklyReviews.map((review) => (
+          {store.weeklyReviews.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((review) => (
             <motion.div key={review.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1037,6 +1039,61 @@ function WeeklyReview() {
             </motion.div>
           ))}
         </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function MasterHistory() {
+  const store = useStore();
+  
+  const totalDeepWorkMinutes = store.focusSessions
+    .filter(s => s.type === 'work')
+    .reduce((acc, s) => acc + s.duration, 0);
+  
+  const totalTasksDone = store.dailyStats.reduce((acc, s) => acc + (s.mainCompleted || 0) + (s.quickCompleted || 0), 0);
+  const totalHabitCheckins = store.trackers.reduce((acc, t) => acc + t.history.length, 0);
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#3b82f615' }}><History size={16} color="var(--koala)" /></div>
+        <div className="sec-title">Arsip & History Pencapaian</div>
+      </div>
+      
+      <div className="card" style={{ padding: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--elang)' }}>{(totalDeepWorkMinutes / 60).toFixed(1)}h</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Deep Work</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--green)' }}>{totalTasksDone}</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Tugas Selesai</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--gold)' }}>{totalHabitCheckins}</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Habit Done</div>
+          </div>
+        </div>
+        
+        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', color: 'var(--muted2)' }}>Timeline Perjalanan</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+           {store.weeklyReviews.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(review => (
+             <div key={review.id} style={{ display: 'flex', gap: '12px', borderLeft: '2px solid var(--border)', paddingLeft: '16px', position: 'relative', paddingBottom: '8px' }}>
+               <div style={{ position: 'absolute', left: '-5px', top: '4px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--elang)' }}></div>
+               <div>
+                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Review Mingguan — {new Date(review.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
+                 <div style={{ fontSize: '12px', color: 'var(--muted2)', marginTop: '4px', fontStyle: 'italic' }}>"{review.q3.substring(0, 80)}..."</div>
+               </div>
+             </div>
+           ))}
+           {store.weeklyReviews.length === 0 && (
+             <div style={{ fontSize: '11px', color: 'var(--muted)', textAlign: 'center', padding: '12px' }}>
+               History akan muncul di sini setelah Anda membuat review mingguan pertama.
+             </div>
+           )}
+        </div>
       </div>
     </div>
   );
@@ -1568,6 +1625,7 @@ export default function App() {
             <FocusGoalTracker />
             <FocusStats />
             <DailyRewards />
+            <MasterHistory />
             <DailySystem />
             <ProgressTracker />
             <WeeklyReview />
