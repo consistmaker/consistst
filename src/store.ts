@@ -97,6 +97,29 @@ export interface Reward {
   createdAt: any;
 }
 
+export interface PinnedAction {
+  id: string;
+  uid: string;
+  text: string;
+  type: 'daily' | 'weekly';
+  completed: boolean;
+  createdAt: any;
+}
+
+export interface Note {
+  id: string;
+  uid: string;
+  content: string;
+  color: string;
+  createdAt: any;
+}
+
+export interface ThemeSettings {
+  uid: string;
+  accentColor: string;
+  fontFamily: string;
+}
+
 interface AppState {
   user: FirebaseUser | null;
   isAuthReady: boolean;
@@ -113,6 +136,9 @@ interface AppState {
   focusSessions: FocusSession[];
   focusSettings: FocusSettings | null;
   rewards: Reward[];
+  pinnedActions: PinnedAction[];
+  notes: Note[];
+  themeSettings: ThemeSettings | null;
   isFocusMode: boolean;
 
   setUser: (user: FirebaseUser | null) => void;
@@ -129,6 +155,9 @@ interface AppState {
   setFocusSessions: (sessions: FocusSession[]) => void;
   setFocusSettings: (settings: FocusSettings | null) => void;
   setRewards: (rewards: Reward[]) => void;
+  setPinnedActions: (actions: PinnedAction[]) => void;
+  setNotes: (notes: Note[]) => void;
+  setThemeSettings: (settings: ThemeSettings | null) => void;
   setFocusMode: (enabled: boolean) => void;
 
   addIntention: (intention: Omit<Intention, 'id' | 'uid'>) => void;
@@ -174,6 +203,9 @@ export const useStore = create<AppState>()(
       focusSessions: [],
       focusSettings: null,
       rewards: [],
+      pinnedActions: [],
+      notes: [],
+      themeSettings: null,
       isFocusMode: false,
 
       setUser: (user) => set({ user }),
@@ -190,6 +222,9 @@ export const useStore = create<AppState>()(
       setFocusSessions: (focusSessions) => set({ focusSessions }),
       setFocusSettings: (focusSettings) => set({ focusSettings }),
       setRewards: (rewards) => set({ rewards }),
+      setPinnedActions: (pinnedActions) => set({ pinnedActions }),
+      setNotes: (notes) => set({ notes }),
+      setThemeSettings: (themeSettings) => set({ themeSettings }),
       setFocusMode: (isFocusMode) => set({ isFocusMode }),
 
       addIntention: (intention) => {

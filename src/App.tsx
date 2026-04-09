@@ -3,13 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, ReactNode, useMemo } from 'react';
 import { 
   Plus, Trash2, Microscope, Zap, TrendingUp, RefreshCw, ClipboardList, 
   Repeat, BarChart3, CheckCircle2, X, LogIn, LogOut, User as UserIcon,
   CheckSquare, Square, Play, Pause, RotateCcw, Target, Shield, ShieldOff,
-  Eye, EyeOff, Timer, Edit2, Gift, Check, History
+  Eye, EyeOff, Timer, Edit2, Gift, Check, History, Pin, StickyNote,
+  Palette, Type, LayoutDashboard, Settings
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  LineChart, Line, AreaChart, Area
+} from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   useStore, 
@@ -22,7 +27,10 @@ import {
   FocusGoal,
   FocusSession,
   FocusSettings,
-  Reward
+  Reward,
+  PinnedAction,
+  Note,
+  ThemeSettings
 } from './store';
 import { 
   auth, db, googleProvider, signInWithPopup, onAuthStateChanged, 
@@ -129,6 +137,425 @@ function Login() {
           <LogIn size={18} /> Masuk dengan Google
         </button>
       </motion.div>
+    </div>
+  );
+}
+
+function PinnedActions() {
+  const store = useStore();
+  const [text, setText] = useState('');
+  const [type, setType] = useState<'daily' | 'weekly'>('daily');
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async () => {
+    if (!text.trim() || !store.user) return;
+    const id = Math.random().toString(36).substring(7);
+    const path = 'pinnedActions';
+    try {
+      await setDoc(doc(db, path, id), {
+        id,
+        uid: store.user.uid,
+        text: text.trim(),
+        type,
+        completed: false,
+        createdAt: serverTimestamp()
+      });
+      setText('');
+      setAdding(false);
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+  };
+
+  const toggleComplete = async (action: PinnedAction) => {
+    const path = `pinnedActions/${action.id}`;
+    try {
+      await updateDoc(doc(db, 'pinnedActions', action.id), { completed: !action.completed });
+    } catch (e) { handleFirestoreError(e, OperationType.UPDATE, path); }
+  };
+
+  const handleDelete = async (id: string) => {
+    const path = `pinnedActions/${id}`;
+    try {
+      await deleteDoc(doc(db, 'pinnedActions', id));
+    } catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  };
+
+  const daily = store.pinnedActions.filter(a => a.type === 'daily');
+  const weekly = store.pinnedActions.filter(a => a.type === 'weekly');
+
+  return (
+    <div className="sec" style={{ marginBottom: '32px' }}>
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#f59e0b15' }}><Pin size={16} color="var(--gold)" /></div>
+        <div className="sec-title">
+          <span>Pinned Actions (Fokus Utama)</span>
+          <button className="btn btn-sm" onClick={() => setAdding(!adding)}>
+            {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Pin Aksi'}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {adding && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card mb-4" style={{ border: '1px solid var(--gold)' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button 
+                className={`btn ${type === 'daily' ? 'btn-primary' : ''}`} 
+                style={{ flex: 1, fontSize: '11px', background: type === 'daily' ? 'var(--gold)' : 'var(--s2)', color: type === 'daily' ? '#000' : 'var(--text)' }}
+                onClick={() => setType('daily')}
+              >Harian</button>
+              <button 
+                className={`btn ${type === 'weekly' ? 'btn-primary' : ''}`} 
+                style={{ flex: 1, fontSize: '11px', background: type === 'weekly' ? 'var(--gold)' : 'var(--s2)', color: type === 'weekly' ? '#000' : 'var(--text)' }}
+                onClick={() => setType('weekly')}
+              >Mingguan</button>
+            </div>
+            <input 
+              className="input-field" 
+              placeholder={type === 'daily' ? "Aksi krusial hari ini..." : "Target utama minggu ini..."} 
+              value={text} 
+              onChange={e => setText(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
+            <button className="btn btn-primary" style={{ width: '100%', background: 'var(--gold)', color: '#000' }} onClick={handleAdd}>Pin Sekarang</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="card" style={{ background: 'rgba(245, 158, 11, 0.03)', border: '1px dashed rgba(245, 158, 11, 0.2)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--gold)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📌 Hari Ini</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {daily.map(action => (
+              <div key={action.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'var(--s1)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div onClick={() => toggleComplete(action)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  {action.completed ? <CheckCircle2 size={16} color="var(--green)" /> : <Square size={16} color="var(--muted)" />}
+                </div>
+                <span style={{ flex: 1, fontSize: '13px', textDecoration: action.completed ? 'line-through' : 'none', color: action.completed ? 'var(--muted2)' : 'var(--text)' }}>{action.text}</span>
+                <button style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer' }} onClick={() => handleDelete(action.id)}><Trash2 size={14}/></button>
+              </div>
+            ))}
+            {daily.length === 0 && <div style={{ fontSize: '11px', color: 'var(--muted2)', textAlign: 'center', padding: '10px' }}>Belum ada aksi harian yang di-pin.</div>}
+          </div>
+        </div>
+
+        <div className="card" style={{ background: 'rgba(245, 158, 11, 0.03)', border: '1px dashed rgba(245, 158, 11, 0.2)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--gold)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📌 Minggu Ini</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {weekly.map(action => (
+              <div key={action.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'var(--s1)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div onClick={() => toggleComplete(action)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  {action.completed ? <CheckCircle2 size={16} color="var(--green)" /> : <Square size={16} color="var(--muted)" />}
+                </div>
+                <span style={{ flex: 1, fontSize: '13px', textDecoration: action.completed ? 'line-through' : 'none', color: action.completed ? 'var(--muted2)' : 'var(--text)' }}>{action.text}</span>
+                <button style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer' }} onClick={() => handleDelete(action.id)}><Trash2 size={14}/></button>
+              </div>
+            ))}
+            {weekly.length === 0 && <div style={{ fontSize: '11px', color: 'var(--muted2)', textAlign: 'center', padding: '10px' }}>Belum ada target mingguan yang di-pin.</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ThemeCustomizer() {
+  const store = useStore();
+  const [open, setOpen] = useState(false);
+
+  const accentColors = [
+    { name: 'Violet', value: '#8b5cf6' },
+    { name: 'Cyan', value: '#06b6d4' },
+    { name: 'Orange', value: '#f97316' },
+    { name: 'Emerald', value: '#10b981' },
+    { name: 'Rose', value: '#f43f5e' },
+    { name: 'Amber', value: '#f59e0b' },
+  ];
+
+  const fonts = [
+    { name: 'Instrument Sans', value: "'Instrument Sans', sans-serif" },
+    { name: 'Clash Display', value: "'Clash Display', sans-serif" },
+    { name: 'DM Mono', value: "'DM Mono', monospace" },
+    { name: 'Inter', value: "'Inter', sans-serif" },
+  ];
+
+  const updateTheme = async (settings: Partial<ThemeSettings>) => {
+    if (!store.user) return;
+    const current = store.themeSettings || { accentColor: '#8b5cf6', fontFamily: "'Instrument Sans', sans-serif" };
+    const newSettings = { ...current, ...settings, uid: store.user.uid };
+    try {
+      await setDoc(doc(db, 'themeSettings', store.user.uid), newSettings);
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, 'themeSettings'); }
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#ec489915' }}><Palette size={16} color="#ec4899" /></div>
+        <div className="sec-title">
+          <span>Kustomisasi Tampilan</span>
+          <button className="btn btn-sm" onClick={() => setOpen(!open)}>
+            {open ? <X size={14}/> : <Settings size={14}/>} {open ? 'Tutup' : 'Buka Pengaturan'}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="card" style={{ overflow: 'hidden' }}>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div>
+                <div className="form-label mb-4">Warna Aksen Utama</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                  {accentColors.map(c => (
+                    <button 
+                      key={c.value} 
+                      onClick={() => updateTheme({ accentColor: c.value })}
+                      style={{ 
+                        padding: '12px', 
+                        borderRadius: '12px', 
+                        background: c.value + '15', 
+                        border: `1px solid ${store.themeSettings?.accentColor === c.value ? c.value : 'var(--border)'}`,
+                        color: c.value,
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        textAlign: 'center'
+                      }}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="form-label mb-4">Pilihan Font</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {fonts.map(f => (
+                    <button 
+                      key={f.value} 
+                      onClick={() => updateTheme({ fontFamily: f.value })}
+                      style={{ 
+                        padding: '12px', 
+                        borderRadius: '12px', 
+                        background: 'var(--s2)', 
+                        border: `1px solid ${store.themeSettings?.fontFamily === f.value ? 'var(--primary)' : 'var(--border)'}`,
+                        fontFamily: f.value,
+                        fontSize: '13px',
+                        textAlign: 'left'
+                      }}
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function AdvancedAnalytics() {
+  const store = useStore();
+  const [timeframe, setTimeframe] = useState<'monthly' | 'yearly'>('monthly');
+
+  const analyticsData = useMemo(() => {
+    const stats = store.dailyStats;
+    if (timeframe === 'monthly') {
+      // Group by month for the current year
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const currentYear = new Date().getFullYear();
+      
+      return months.map((name, index) => {
+        const monthStats = stats.filter(s => {
+          const d = new Date(s.date);
+          return d.getMonth() === index && d.getFullYear() === currentYear;
+        });
+        
+        const totalMain = monthStats.reduce((acc, s) => acc + (s.mainCompleted || 0), 0);
+        const totalQuick = monthStats.reduce((acc, s) => acc + (s.quickCompleted || 0), 0);
+        
+        return { name, main: totalMain, quick: totalQuick };
+      });
+    } else {
+      // Group by year
+      const years = Array.from({ length: 3 }, (_, i) => new Date().getFullYear() - 2 + i);
+      return years.map(year => {
+        const yearStats = stats.filter(s => new Date(s.date).getFullYear() === year);
+        const totalMain = yearStats.reduce((acc, s) => acc + (s.mainCompleted || 0), 0);
+        const totalQuick = yearStats.reduce((acc, s) => acc + (s.quickCompleted || 0), 0);
+        return { name: year.toString(), main: totalMain, quick: totalQuick };
+      });
+    }
+  }, [store.dailyStats, timeframe]);
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#3b82f615' }}><LayoutDashboard size={16} color="#3b82f6" /></div>
+        <div className="sec-title">
+          <span>Dashboard Analitik Lanjutan</span>
+          <div className="flex-row">
+            <button className={`btn btn-sm ${timeframe === 'monthly' ? 'btn-primary' : ''}`} onClick={() => setTimeframe('monthly')}>Bulanan</button>
+            <button className={`btn btn-sm ${timeframe === 'yearly' ? 'btn-primary' : ''}`} onClick={() => setTimeframe('yearly')}>Tahunan</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6 mb-8">
+        <div className="card" style={{ padding: '24px', height: '320px' }}>
+          <div className="form-label mb-6">Tren Penyelesaian Tugas Utama</div>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={analyticsData}>
+              <defs>
+                <linearGradient id="colorMain" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted2)' }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted2)' }} />
+              <Tooltip contentStyle={{ background: 'var(--s1)', border: '1px solid var(--border)', borderRadius: '8px' }} />
+              <Area type="monotone" dataKey="main" stroke="var(--primary)" fillOpacity={1} fill="url(#colorMain)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card" style={{ padding: '24px', height: '320px' }}>
+          <div className="form-label mb-6">Perbandingan Tugas Utama vs Cepat</div>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analyticsData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted2)' }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted2)' }} />
+              <Tooltip contentStyle={{ background: 'var(--s1)', border: '1px solid var(--border)', borderRadius: '8px' }} />
+              <Bar dataKey="main" name="Utama" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="quick" name="Cepat" fill="var(--muted)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Notepad() {
+  const store = useStore();
+  const [content, setContent] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('var(--s2)');
+
+  const colors = [
+    'var(--s2)',
+    'rgba(16, 185, 129, 0.1)', // Greenish
+    'rgba(59, 130, 246, 0.1)', // Bluish
+    'rgba(245, 158, 11, 0.1)', // Goldish
+    'rgba(239, 68, 68, 0.1)',  // Reddish
+  ];
+
+  const handleAdd = async () => {
+    if (!content.trim() || !store.user) return;
+    const id = Math.random().toString(36).substring(7);
+    const path = 'notes';
+    try {
+      await setDoc(doc(db, path, id), {
+        id,
+        uid: store.user.uid,
+        content: content.trim(),
+        color: selectedColor,
+        createdAt: serverTimestamp()
+      });
+      setContent('');
+      setAdding(false);
+    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+  };
+
+  const handleDelete = async (id: string) => {
+    const path = `notes/${id}`;
+    try {
+      await deleteDoc(doc(db, 'notes', id));
+    } catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#8b5cf615' }}><StickyNote size={16} color="var(--primary)" /></div>
+        <div className="sec-title">
+          <span>Notepad (Catatan Penting)</span>
+          <button className="btn btn-sm" onClick={() => setAdding(!adding)}>
+            {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Tulis Catatan'}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {adding && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="card mb-6">
+            <textarea 
+              className="input-field" 
+              rows={4} 
+              placeholder="Tulis hal penting di sini..." 
+              value={content} 
+              onChange={e => setContent(e.target.value)}
+              style={{ background: selectedColor, border: '1px solid var(--border)' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {colors.map(c => (
+                  <div 
+                    key={c} 
+                    onClick={() => setSelectedColor(c)}
+                    style={{ 
+                      width: '20px', 
+                      height: '20px', 
+                      borderRadius: '4px', 
+                      background: c, 
+                      cursor: 'pointer',
+                      border: selectedColor === c ? '2px solid var(--primary)' : '1px solid var(--border)'
+                    }} 
+                  />
+                ))}
+              </div>
+              <button className="btn btn-primary" onClick={handleAdd}>Simpan Catatan</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        {store.notes.sort((a,b) => parseDate(b.createdAt).getTime() - parseDate(a.createdAt).getTime()).map(note => (
+          <motion.div 
+            key={note.id} 
+            layout
+            initial={{ opacity: 0, y: 10 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="card" 
+            style={{ background: note.color, border: '1px solid var(--border)', position: 'relative', padding: '16px' }}
+          >
+            <button 
+              style={{ position: 'absolute', top: '8px', right: '8px', background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+              onClick={() => handleDelete(note.id)}
+            >
+              <Trash2 size={12} />
+            </button>
+            <div style={{ fontSize: '13px', lineHeight: '1.6', whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
+              {note.content}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--muted2)', marginTop: '12px' }}>
+              {parseDate(note.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </motion.div>
+        ))}
+        {store.notes.length === 0 && !adding && (
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px', color: 'var(--muted2)', fontSize: '12px', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+            Belum ada catatan penting. Klik "Tulis Catatan" untuk memulai.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -791,18 +1218,37 @@ function IncomeLadder() {
 function DailySystem() {
   const store = useStore();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ char: '🌅', time: '', name: '', tasks: '' });
 
   const handleAdd = async () => {
     if (form.name && store.user) {
-      const id = Math.random().toString(36).substring(7);
+      const id = editingId || Math.random().toString(36).substring(7);
       const path = 'dailyBlocks';
       try {
-        await setDoc(doc(db, path, id), { ...form, id, uid: store.user.uid, tasks: form.tasks.split('\n').filter(Boolean), createdAt: serverTimestamp() });
+        await setDoc(doc(db, path, id), { 
+          ...form, 
+          id, 
+          uid: store.user.uid, 
+          tasks: form.tasks.split('\n').filter(Boolean), 
+          createdAt: serverTimestamp() 
+        }, { merge: true });
         setForm({ char: '🌅', time: '', name: '', tasks: '' });
         setAdding(false);
+        setEditingId(null);
       } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
     }
+  };
+
+  const handleEdit = (block: any) => {
+    setForm({
+      char: block.char,
+      time: block.time,
+      name: block.name,
+      tasks: block.tasks.join('\n')
+    });
+    setEditingId(block.id);
+    setAdding(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -817,7 +1263,7 @@ function DailySystem() {
         <div className="sec-icon" style={{ background: '#10b98115' }}><RefreshCw size={16} color="var(--green)" /></div>
         <div className="sec-title">
           <span>Sistem Harian</span>
-          <button className="btn btn-sm" onClick={() => setAdding(!adding)}>
+          <button className="btn btn-sm" onClick={() => { setAdding(!adding); setEditingId(null); setForm({ char: '🌅', time: '', name: '', tasks: '' }); }}>
             {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Tambah'}
           </button>
         </div>
@@ -825,13 +1271,18 @@ function DailySystem() {
       <AnimatePresence>
         {adding && (
            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="card mb-4">
+             <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', color: 'var(--elang)' }}>
+               {editingId ? 'EDIT BLOK SISTEM' : 'TAMBAH BLOK SISTEM BARU'}
+             </div>
              <div className="flex-row">
                <input className="input-field" placeholder="Ikon (🌅)" value={form.char} onChange={e => setForm({...form, char: e.target.value})} style={{ width: '60px' }} />
                <input className="input-field" placeholder="Waktu (05:00 - 06:00)" value={form.time} onChange={e => setForm({...form, time: e.target.value})} />
                <input className="input-field" placeholder="Nama Blok (Creative Block)" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
              </div>
              <textarea className="input-field" rows={3} placeholder="Tugas (satu per baris)" value={form.tasks} onChange={e => setForm({...form, tasks: e.target.value})} />
-             <button className="btn btn-primary" onClick={handleAdd}>Simpan Block</button>
+             <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAdd}>
+               {editingId ? 'Update Block' : 'Simpan Block'}
+             </button>
            </motion.div>
         )}
       </AnimatePresence>
@@ -840,7 +1291,13 @@ function DailySystem() {
           {store.dailyBlocks.map((block) => (
             <motion.div key={block.id} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="daily-block">
               <div className="db-char">{block.char}</div>
-              <div className="db-time"><span>{block.time}</span><button style={{ background:'transparent', border:'none', color:'var(--red)', cursor:'pointer' }} onClick={() => handleDelete(block.id)}><Trash2 size={12}/></button></div>
+              <div className="db-time">
+                <span>{block.time}</span>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button style={{ background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer' }} onClick={() => handleEdit(block)}><Edit2 size={12}/></button>
+                  <button style={{ background:'transparent', border:'none', color:'var(--red)', cursor:'pointer' }} onClick={() => handleDelete(block.id)}><Trash2 size={12}/></button>
+                </div>
+              </div>
               <div className="db-name">{block.name}</div>
               <ul className="db-tasks">{block.tasks.map((task, i) => <li key={i}>{task}</li>)}</ul>
             </motion.div>
@@ -1166,37 +1623,36 @@ function MindsetReframe() {
 
 function DailyAudit() {
   const store = useStore();
+  const [viewDate, setViewDate] = useState(new Date().toISOString().split('T')[0]);
   const today = new Date().toISOString().split('T')[0];
-  const stats = store.dailyStats.find(s => s.date === today);
+  const stats = store.dailyStats.find(s => s.date === viewDate);
 
   const mainTasks = store.dailyBlocks.flatMap(b => b.tasks.map((t, i) => ({ id: `${b.id}:${i}`, text: t, blockName: b.name })));
   const quickTasks = store.quickTasks;
 
-  const updateStats = async (type: 'main' | 'quick', count: number, totalMain?: number) => {
-    if (!store.user) return;
-    const id = stats?.id || `${store.user.uid}_${today}`;
-    const path = `dailyStats/${id}`;
-    const data = {
-      id,
-      uid: store.user.uid,
-      date: today,
-      mainCompleted: type === 'main' ? count : (stats?.mainCompleted || 0),
-      mainTotal: totalMain !== undefined ? totalMain : (stats?.mainTotal || mainTasks.length),
-      quickCompleted: type === 'quick' ? count : (stats?.quickCompleted || 0)
-    };
-    try {
-      await setDoc(doc(db, 'dailyStats', id), data, { merge: true });
-    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
-  };
-
-  const completedQuickCount = quickTasks.filter(t => t.completed).length;
-  
-  // For main tasks, we need a way to track which ones are done today.
-  // Since DailyBlock is a template, we'll store the completed IDs in DailyStats.
-  // I'll add a 'completedMainIds' field to DailyStats in the actual Firestore doc (even if not in interface yet, it's fine for JS)
+  const completedQuickCount = stats?.quickCompleted || 0;
   const completedMainIds = (stats as any)?.completedMainIds || [];
 
+  const chartData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().split('T')[0];
+    });
+
+    return last7Days.map(date => {
+      const s = store.dailyStats.find(stat => stat.date === date);
+      return {
+        date: parseDate(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+        main: s?.mainCompleted || 0,
+        quick: s?.quickCompleted || 0,
+        fullDate: date
+      };
+    });
+  }, [store.dailyStats]);
+
   const toggleMainTask = async (taskId: string) => {
+    if (viewDate !== today) return; // Only allow editing today's stats
     const newIds = completedMainIds.includes(taskId) 
       ? completedMainIds.filter((id: string) => id !== taskId)
       : [...completedMainIds, taskId];
@@ -1221,7 +1677,50 @@ function DailyAudit() {
       <div className="sec-header">
         <div className="sec-icon" style={{ background: '#8b5cf615' }}><BarChart3 size={16} color="var(--primary)" /></div>
         <div className="sec-title">Audit Produktivitas Harian</div>
-        <div className="sec-ref">Deteksi: Apakah Anda mengerjakan "Tugas Asli" atau hanya "Tugas Tambahan"?</div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input 
+            type="date" 
+            className="input-field" 
+            style={{ marginBottom: 0, padding: '4px 8px', fontSize: '12px', width: 'auto' }} 
+            value={viewDate} 
+            onChange={e => setViewDate(e.target.value)}
+            max={today}
+          />
+        </div>
+      </div>
+      
+      <div className="sec-ref" style={{ marginBottom: '16px' }}>
+        {viewDate === today ? 'Deteksi: Apakah Anda mengerjakan "Tugas Asli" atau hanya "Tugas Tambahan"?' : `Melihat rekapan tanggal: ${parseDate(viewDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+      </div>
+
+      <div className="card mb-6" style={{ padding: '20px', background: 'var(--s1)', height: '240px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--muted2)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tren Produktivitas (7 Hari Terakhir)</div>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+            <XAxis 
+              dataKey="date" 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fontSize: 10, fill: 'var(--muted2)' }} 
+            />
+            <YAxis 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fontSize: 10, fill: 'var(--muted2)' }} 
+            />
+            <Tooltip 
+              contentStyle={{ background: 'var(--s1)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+              cursor={{ fill: 'var(--s2)', opacity: 0.4 }}
+            />
+            <Bar dataKey="main" name="Tugas Utama" radius={[4, 4, 0, 0]} barSize={20}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fullDate === viewDate ? 'var(--gold)' : 'var(--primary)'} />
+              ))}
+            </Bar>
+            <Bar dataKey="quick" name="Tugas Cepat" fill="var(--muted)" radius={[4, 4, 0, 0]} barSize={20} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -1232,7 +1731,7 @@ function DailyAudit() {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {mainTasks.map(task => (
-              <div key={task.id} onClick={() => toggleMainTask(task.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--s2)', borderRadius: '8px', cursor: 'pointer', opacity: completedMainIds.includes(task.id) ? 0.6 : 1 }}>
+              <div key={task.id} onClick={() => toggleMainTask(task.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--s2)', borderRadius: '8px', cursor: viewDate === today ? 'pointer' : 'default', opacity: completedMainIds.includes(task.id) ? 0.6 : 1 }}>
                 {completedMainIds.includes(task.id) ? <CheckCircle2 size={16} color="var(--green)" /> : <Square size={16} color="var(--muted)" />}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '13px', textDecoration: completedMainIds.includes(task.id) ? 'line-through' : 'none' }}>{task.text}</div>
@@ -1240,6 +1739,7 @@ function DailyAudit() {
                 </div>
               </div>
             ))}
+            {mainTasks.length === 0 && <div style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', padding: '12px' }}>Belum ada sistem harian yang diatur.</div>}
           </div>
         </div>
 
@@ -1249,32 +1749,25 @@ function DailyAudit() {
             <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--muted2)' }}>{completedQuickCount} Selesai</span>
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {quickTasks.filter(t => !t.completed).slice(0, 5).map(task => (
-              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--s2)', borderRadius: '8px', opacity: 0.8 }}>
-                <Square size={16} color="var(--muted)" />
-                <span style={{ fontSize: '13px' }}>{task.text}</span>
-              </div>
-            ))}
-            {quickTasks.filter(t => t.completed).slice(0, 3).map(task => (
-              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--s2)', borderRadius: '8px', opacity: 0.4 }}>
-                <CheckCircle2 size={16} color="var(--green)" />
-                <span style={{ fontSize: '13px', textDecoration: 'line-through' }}>{task.text}</span>
-              </div>
-            ))}
+            <div style={{ fontSize: '12px', color: 'var(--muted2)', padding: '8px', background: 'var(--s2)', borderRadius: '8px', textAlign: 'center' }}>
+              {completedQuickCount} tugas cepat diselesaikan pada tanggal ini.
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 p-4" style={{ background: 'var(--s2)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: 'var(--muted2)' }}>ANALISIS MOMENTUM</div>
-        {completedMainIds.length === 0 && completedQuickCount > 0 ? (
-          <div style={{ color: 'var(--red)', fontSize: '13px' }}>⚠️ <strong>Bahaya:</strong> Anda sibuk mengerjakan tugas tambahan tapi tugas utama (sistem) belum disentuh. Ini adalah bentuk prokrastinasi produktif.</div>
-        ) : completedMainIds.length > 0 && completedMainIds.length === mainTasks.length ? (
-          <div style={{ color: 'var(--green)', fontSize: '13px' }}>✅ <strong>Luar Biasa:</strong> Sistem harian selesai 100%. Anda berada di jalur Elang.</div>
-        ) : (
-          <div style={{ color: 'var(--muted2)', fontSize: '13px' }}>Selesaikan tugas utama di "Daily System" untuk menjaga momentum jangka panjang.</div>
-        )}
-      </div>
+      {viewDate === today && (
+        <div className="mt-6 p-4" style={{ background: 'var(--s2)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: 'var(--muted2)' }}>ANALISIS MOMENTUM</div>
+          {completedMainIds.length === 0 && completedQuickCount > 0 ? (
+            <div style={{ color: 'var(--red)', fontSize: '13px' }}>⚠️ <strong>Bahaya:</strong> Anda sibuk mengerjakan tugas tambahan tapi tugas utama (sistem) belum disentuh. Ini adalah bentuk prokrastinasi produktif.</div>
+          ) : completedMainIds.length > 0 && completedMainIds.length === mainTasks.length ? (
+            <div style={{ color: 'var(--green)', fontSize: '13px' }}>✅ <strong>Luar Biasa:</strong> Sistem harian selesai 100%. Anda berada di jalur Elang.</div>
+          ) : (
+            <div style={{ color: 'var(--muted2)', fontSize: '13px' }}>Selesaikan tugas utama di "Daily System" untuk menjaga momentum jangka panjang.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1470,6 +1963,7 @@ async function seedUserData(uid: string) {
 
 export default function App() {
   const store = useStore();
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -1584,6 +2078,27 @@ export default function App() {
       if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'rewards');
     });
 
+    const qPinned = query(collection(db, 'pinnedActions'), where('uid', '==', user.uid));
+    const unsubPinned = onSnapshot(qPinned, (snap) => {
+      store.setPinnedActions(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'pinnedActions');
+    });
+
+    const qTheme = doc(db, 'themeSettings', user.uid);
+    const unsubTheme = onSnapshot(qTheme, (doc) => {
+      if (doc.exists()) store.setThemeSettings(doc.data() as any);
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.GET, 'themeSettings');
+    });
+
+    const qNotes = query(collection(db, 'notes'), where('uid', '==', user.uid));
+    const unsubNotes = onSnapshot(qNotes, (snap) => {
+      store.setNotes(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'notes');
+    });
+
     return () => {
       unsubIntentions();
       unsubBlocks();
@@ -1596,6 +2111,9 @@ export default function App() {
       unsubFocusSessions();
       unsubFocusSettings();
       unsubRewards();
+      unsubPinned();
+      unsubTheme();
+      unsubNotes();
     };
   }, [store.user]);
 
@@ -1606,6 +2124,15 @@ export default function App() {
       document.body.classList.remove('focus-mode');
     }
   }, [store.isFocusMode]);
+
+  useEffect(() => {
+    if (store.themeSettings) {
+      const root = document.documentElement;
+      root.style.setProperty('--primary', store.themeSettings.accentColor);
+      root.style.setProperty('--elang', store.themeSettings.accentColor);
+      document.body.style.fontFamily = store.themeSettings.fontFamily;
+    }
+  }, [store.themeSettings]);
 
   if (!store.isAuthReady) {
     return <div className="wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>Memuat...</div>;
@@ -1621,27 +2148,65 @@ export default function App() {
       <div className={`wrap ${store.isFocusMode ? 'focus-active' : ''}`}>
         <Navbar />
         <Hero />
-        <div className="main-grid">
-          <div>
-            <PomodoroTimer />
-            <ResearchBase />
-            <ImplementationIntentions />
-            <IncomeLadder />
-            <DailyAudit />
-            <QuickTasks />
-            <BlocklistManager />
-          </div>
-          <div className="sticky-side">
-            <FocusGoalTracker />
-            <FocusStats />
-            <DailyRewards />
-            <MasterHistory />
-            <DailySystem />
-            <ProgressTracker />
-            <WeeklyReview />
-            <MindsetReframe />
-          </div>
+        
+        <div style={{ marginBottom: '32px', display: 'flex', gap: '12px' }}>
+          <button 
+            className={`btn ${!showAnalytics ? 'btn-primary' : ''}`} 
+            onClick={() => setShowAnalytics(false)}
+          >
+            <ClipboardList size={16} /> Workspace Utama
+          </button>
+          <button 
+            className={`btn ${showAnalytics ? 'btn-primary' : ''}`} 
+            onClick={() => setShowAnalytics(true)}
+          >
+            <LayoutDashboard size={16} /> Dashboard Analitik
+          </button>
         </div>
+
+        <AnimatePresence mode="wait">
+          {showAnalytics ? (
+            <motion.div 
+              key="analytics"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <AdvancedAnalytics />
+              <ThemeCustomizer />
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="workspace"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="main-grid"
+            >
+              <div>
+                <Notepad />
+                <PinnedActions />
+                <PomodoroTimer />
+                <ResearchBase />
+                <ImplementationIntentions />
+                <IncomeLadder />
+                <DailyAudit />
+                <QuickTasks />
+                <BlocklistManager />
+              </div>
+              <div className="sticky-side">
+                <FocusGoalTracker />
+                <FocusStats />
+                <DailyRewards />
+                <MasterHistory />
+                <DailySystem />
+                <ProgressTracker />
+                <WeeklyReview />
+                <MindsetReframe />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </ErrorBoundary>
   );

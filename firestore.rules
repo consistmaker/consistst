@@ -204,5 +204,26 @@ service cloud.firestore {
       allow delete: if isDocOwner();
     }
 
+    match /pinnedActions/{actionId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.text is string;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.text is string;
+      allow delete: if isDocOwner();
+    }
+
+    match /notes/{noteId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && request.resource.data.content is string;
+      allow update: if isDocOwner() && isRequestOwner() && request.resource.data.content is string;
+      allow delete: if isDocOwner();
+    }
+
+    match /themeSettings/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
   }
 }
