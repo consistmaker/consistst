@@ -30,6 +30,15 @@ import {
   OperationType, handleFirestoreError, serverTimestamp, getDoc 
 } from './firebase';
 
+// --- Helpers ---
+
+const parseDate = (dateVal: any): Date => {
+  if (!dateVal) return new Date();
+  if (dateVal.toDate) return dateVal.toDate();
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
+
 // --- Components ---
 
 interface ErrorBoundaryProps {
@@ -1010,13 +1019,13 @@ function WeeklyReview() {
         )}
         
         <AnimatePresence initial={false}>
-          {store.weeklyReviews.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((review) => (
+          {store.weeklyReviews.sort((a,b) => parseDate(b.date).getTime() - parseDate(a.date).getTime()).map((review) => (
             <motion.div key={review.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--elang)' }}></div>
                   <span style={{ fontFamily: 'DM Mono', fontSize: '11px', color: 'var(--muted2)' }}>
-                    {new Date(review.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {parseDate(review.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </span>
                 </div>
                 <button className="btn btn-danger" style={{ padding: '6px' }} onClick={() => handleDelete(review.id)}><Trash2 size={14}/></button>
@@ -1079,11 +1088,11 @@ function MasterHistory() {
         
         <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', color: 'var(--muted2)' }}>Timeline Perjalanan</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-           {store.weeklyReviews.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(review => (
+           {store.weeklyReviews.sort((a,b) => parseDate(b.date).getTime() - parseDate(a.date).getTime()).map(review => (
              <div key={review.id} style={{ display: 'flex', gap: '12px', borderLeft: '2px solid var(--border)', paddingLeft: '16px', position: 'relative', paddingBottom: '8px' }}>
                <div style={{ position: 'absolute', left: '-5px', top: '4px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--elang)' }}></div>
                <div>
-                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Review Mingguan — {new Date(review.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
+                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Review Mingguan — {parseDate(review.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
                  <div style={{ fontSize: '12px', color: 'var(--muted2)', marginTop: '4px', fontStyle: 'italic' }}>"{review.q3.substring(0, 80)}..."</div>
                </div>
              </div>
@@ -1409,6 +1418,7 @@ async function seedUserData(uid: string) {
       q1: 'Minggu ini aku sudah upload 2 video dan dapat 500 views, income $5.',
       q2: 'Terlalu perfeksionis saat editing, makan waktu lama.',
       q3: 'Jika edit jam 17:00, aku set timer 1 jam. Kalau habis, langsung render.',
+      date: new Date().toISOString(),
       createdAt: serverTimestamp()
     }
   ];
