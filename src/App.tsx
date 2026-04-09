@@ -148,8 +148,9 @@ function PinnedActions() {
   const [adding, setAdding] = useState(false);
 
   const handleAdd = async () => {
-    if (!text.trim() || !store.user) return;
-    const id = Math.random().toString(36).substring(7);
+    if (!text.trim() || !store.user || adding === 'saving') return;
+    setAdding('saving');
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
     const path = 'pinnedActions';
     try {
       await setDoc(doc(db, path, id), {
@@ -162,7 +163,10 @@ function PinnedActions() {
       });
       setText('');
       setAdding(false);
-    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+    } catch (e) { 
+      setAdding(true);
+      handleFirestoreError(e, OperationType.WRITE, path); 
+    }
   };
 
   const toggleComplete = async (action: PinnedAction) => {
@@ -216,7 +220,14 @@ function PinnedActions() {
               onChange={e => setText(e.target.value)} 
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
-            <button className="btn btn-primary" style={{ width: '100%', background: 'var(--gold)', color: '#000' }} onClick={handleAdd}>Pin Sekarang</button>
+            <button 
+              className="btn btn-primary" 
+              style={{ width: '100%', background: 'var(--gold)', color: '#000' }} 
+              onClick={handleAdd}
+              disabled={adding === 'saving'}
+            >
+              {adding === 'saving' ? 'Menyimpan...' : 'Pin Sekarang'}
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -457,8 +468,9 @@ function Notepad() {
   ];
 
   const handleAdd = async () => {
-    if (!content.trim() || !store.user) return;
-    const id = Math.random().toString(36).substring(7);
+    if (!content.trim() || !store.user || adding === 'saving') return;
+    setAdding('saving');
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
     const path = 'notes';
     try {
       await setDoc(doc(db, path, id), {
@@ -470,7 +482,10 @@ function Notepad() {
       });
       setContent('');
       setAdding(false);
-    } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+    } catch (e) { 
+      setAdding(true);
+      handleFirestoreError(e, OperationType.WRITE, path); 
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -520,7 +535,9 @@ function Notepad() {
                   />
                 ))}
               </div>
-              <button className="btn btn-primary" onClick={handleAdd}>Simpan Catatan</button>
+              <button className="btn btn-primary" onClick={handleAdd} disabled={adding === 'saving'}>
+                {adding === 'saving' ? 'Menyimpan...' : 'Simpan Catatan'}
+              </button>
             </div>
           </motion.div>
         )}
@@ -1184,14 +1201,18 @@ function ImplementationIntentions() {
   const [form, setForm] = useState({ when: 'PAGI', trigger: '', response: '', note: '' });
 
   const handleAdd = async () => {
-    if (form.trigger && form.response && store.user) {
-      const id = Math.random().toString(36).substring(7);
+    if (form.trigger && form.response && store.user && adding !== 'saving') {
+      const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
       const path = 'intentions';
+      setAdding('saving');
       try {
         await setDoc(doc(db, path, id), { ...form, id, uid: store.user.uid, createdAt: serverTimestamp() });
         setForm({ when: 'PAGI', trigger: '', response: '', note: '' });
         setAdding(false);
-      } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+      } catch (e) { 
+        setAdding(true);
+        handleFirestoreError(e, OperationType.WRITE, path); 
+      }
     }
   };
 
@@ -1224,7 +1245,11 @@ function ImplementationIntentions() {
                 <input className="input-field" placeholder="Jika [TRIGGER]..." value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})} />
                 <input className="input-field" placeholder="Maka [AKSI]..." value={form.response} onChange={e => setForm({...form, response: e.target.value})} />
                 <input className="input-field" placeholder="Catatan karakter (Opsional)" value={form.note} onChange={e => setForm({...form, note: e.target.value})} />
-                <div className="flex-row mt-4"><button className="btn btn-primary" onClick={handleAdd}>Simpan</button></div>
+                <div className="flex-row mt-4">
+                  <button className="btn btn-primary" onClick={handleAdd} disabled={adding === 'saving'}>
+                    {adding === 'saving' ? 'Menyimpan...' : 'Simpan'}
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1912,13 +1937,10 @@ function QuickTasks() {
   const [text, setText] = useState('');
 
   const handleAdd = async () => {
-    if (!text.trim()) return;
-    if (!store.user) {
-      console.error("No user found in store");
-      return;
-    }
+    if (!text.trim() || !store.user || adding === 'saving') return;
+    setAdding('saving');
 
-    const id = Math.random().toString(36).substring(7);
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
     const path = 'quickTasks';
     const newTask = { 
       id, 
@@ -1929,12 +1951,11 @@ function QuickTasks() {
     };
 
     try {
-      console.log("Adding task:", newTask);
       await setDoc(doc(db, path, id), newTask);
       setText('');
       setAdding(false);
     } catch (e) { 
-      console.error("Error adding task:", e);
+      setAdding(true);
       handleFirestoreError(e, OperationType.WRITE, path); 
     }
   };
@@ -2093,37 +2114,41 @@ async function seedUserData(uid: string) {
     { id: '4', stageNum: 'Tahap 4', stageName: 'Freedom', skill: 'YouTube > $1000/bln. Fokus penuh ke sistem kreatif. Investasi ke aset lain.', income: 'Top 5%' }
   ];
 
-  for (const item of intentions) {
-    const id = Math.random().toString(36).substring(7);
+  for (const [i, item] of intentions.entries()) {
+    const id = `${uid}_intention_${i}`;
     await setDoc(doc(db, 'intentions', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
   for (const item of blocks) {
-    await setDoc(doc(db, 'dailyBlocks', item.id), { ...item, uid, createdAt: serverTimestamp() });
+    const blockId = `${uid}_${item.id}`;
+    await setDoc(doc(db, 'dailyBlocks', blockId), { ...item, id: blockId, uid, createdAt: serverTimestamp() });
   }
-  for (const item of reframes) {
-    const id = Math.random().toString(36).substring(7);
+  for (const [i, item] of reframes.entries()) {
+    const id = `${uid}_reframe_${i}`;
     await setDoc(doc(db, 'reframes', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
-  for (const item of trackers) {
-    const id = Math.random().toString(36).substring(7);
+  for (const [i, item] of trackers.entries()) {
+    const id = `${uid}_tracker_${i}`;
     await setDoc(doc(db, 'trackers', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
-  for (const item of reviews) {
-    const id = Math.random().toString(36).substring(7);
+  for (const [i, item] of reviews.entries()) {
+    const id = `${uid}_review_${i}`;
     await setDoc(doc(db, 'weeklyReviews', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
-  for (const item of tasks) {
-    const id = Math.random().toString(36).substring(7);
+  for (const [i, item] of tasks.entries()) {
+    const id = `${uid}_task_${i}`;
     await setDoc(doc(db, 'quickTasks', id), { ...item, id, uid, createdAt: serverTimestamp() });
   }
   for (const item of matrix) {
-    await setDoc(doc(db, 'matrixItems', item.id), { ...item, uid });
+    const matrixId = `${uid}_${item.id}`;
+    await setDoc(doc(db, 'matrixItems', matrixId), { ...item, id: matrixId, uid });
   }
   for (const item of triggerSteps) {
-    await setDoc(doc(db, 'triggerSteps', item.id), { ...item, uid });
+    const triggerId = `${uid}_${item.id}`;
+    await setDoc(doc(db, 'triggerSteps', triggerId), { ...item, id: triggerId, uid });
   }
   for (const item of ladder) {
-    await setDoc(doc(db, 'ladder', item.id), { ...item, uid });
+    const ladderId = `${uid}_${item.id}`;
+    await setDoc(doc(db, 'ladder', ladderId), { ...item, id: ladderId, uid });
   }
 
   // Focus Settings
@@ -2181,6 +2206,18 @@ export default function App() {
       store.setWeeklyReviews([]);
       store.setReframes([]);
       store.setTrackers([]);
+      store.setQuickTasks([]);
+      store.setDailyStats([]);
+      store.setFocusGoals([]);
+      store.setFocusSessions([]);
+      store.setFocusSettings(null);
+      store.setRewards([]);
+      store.setPinnedActions([]);
+      store.setNotes([]);
+      store.setMatrixItems([]);
+      store.setTriggerSteps([]);
+      store.setLadder([]);
+      store.setThemeSettings(null);
       return;
     }
 
@@ -2302,9 +2339,7 @@ export default function App() {
 
     const qLadder = query(collection(db, 'ladder'), where('uid', '==', user.uid));
     const unsubLadder = onSnapshot(qLadder, (snap) => {
-      if (snap.docs.length > 0) {
-        store.setLadder(snap.docs.map(d => d.data() as any).sort((a, b) => a.id.localeCompare(b.id)));
-      }
+      store.setLadder(snap.docs.map(d => d.data() as any).sort((a, b) => a.id.localeCompare(b.id)));
     }, (e) => {
       if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'ladder');
     });
