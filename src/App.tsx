@@ -858,38 +858,58 @@ function BlocklistManager() {
 function FocusStats() {
   const store = useStore();
   const today = getTodayStr();
-  const sessions = store.focusSessions.filter(s => {
+  
+  const sessions = store.focusSessions;
+  const workSessions = sessions.filter(s => s.type === 'work');
+  
+  // Daily stats for today
+  const todaySessions = workSessions.filter(s => {
     const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
     const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     return dStr === today;
   });
+  const todayMinutes = todaySessions.reduce((acc, s) => acc + s.duration, 0);
   
-  const workSessions = sessions.filter(s => s.type === 'work');
   const totalMinutes = workSessions.reduce((acc, s) => acc + s.duration, 0);
   const avgDuration = workSessions.length > 0 ? totalMinutes / workSessions.length : 0;
   
-  // Weekly stats
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const weeklyMinutes = workSessions
-    .filter(s => {
-      const d = s.createdAt.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
-      return d >= oneWeekAgo;
-    })
-    .reduce((acc, s) => acc + s.duration, 0);
+  // Weekly/Daily History Stats
+  const dailyHistory = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
+
+    return last7Days.map(dateStr => {
+      const daySessions = workSessions.filter(s => {
+        const d = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+        const sDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return sDateStr === dateStr;
+      });
+      const minutes = daySessions.reduce((acc, s) => acc + s.duration, 0);
+      return {
+        date: parseDate(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+        minutes,
+        fullDate: dateStr
+      };
+    });
+  }, [workSessions]);
+
+  const weeklyMinutes = dailyHistory.reduce((acc, d) => acc + d.minutes, 0);
 
   return (
     <div className="sec">
       <div className="sec-header">
         <div className="sec-icon" style={{ background: '#8b5cf615' }}><BarChart3 size={16} color="var(--elang)" /></div>
-        <div className="sec-title">Analisis Fokus</div>
+        <div className="sec-title">Analisis Fokus & Deep Work</div>
       </div>
       
       <div className="stats-grid">
         <div className="card" style={{ margin: 0, padding: '16px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Total Deep Work</div>
-          <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--elang)' }}>{totalMinutes} <span style={{ fontSize: '12px', fontWeight: 400 }}>menit</span></div>
-          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Sepanjang waktu</div>
+          <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Deep Work Hari Ini</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--primary)' }}>{todayMinutes} <span style={{ fontSize: '12px', fontWeight: 400 }}>menit</span></div>
+          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Target: {store.focusGoals[0]?.dailyMinutes || 0}m</div>
         </div>
         <div className="card" style={{ margin: 0, padding: '16px' }}>
           <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>7 Hari Terakhir</div>
@@ -904,7 +924,42 @@ function FocusStats() {
         <div className="card" style={{ margin: 0, padding: '16px' }}>
           <div style={{ fontSize: '10px', color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Total Sesi</div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--green)' }}>{workSessions.length} <span style={{ fontSize: '12px', fontWeight: 400 }}>sesi</span></div>
-          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Selesai</div>
+          <div style={{ fontSize: '11px', color: 'var(--muted2)', marginTop: '4px' }}>Sepanjang waktu</div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: '16px', padding: '24px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <History size={16} color="var(--primary)" />
+          Tren Deep Work (7 Hari Terakhir)
+        </div>
+        <div style={{ width: '100%', height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={dailyHistory}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis 
+                dataKey="date" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 10, fill: 'var(--muted2)' }} 
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 10, fill: 'var(--muted2)' }}
+                unit="m"
+              />
+              <Tooltip 
+                contentStyle={{ background: 'var(--s1)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+                cursor={{ fill: 'var(--s2)' }}
+              />
+              <Bar dataKey="minutes" radius={[4, 4, 0, 0]}>
+                {dailyHistory.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fullDate === today ? 'var(--primary)' : 'var(--border2)'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
@@ -1033,7 +1088,7 @@ function Hero() {
       <div className="hero-eyebrow">
         <span>Sistem Harian Personal — Dikalibrasi untuk Kondisimu</span>
       </div>
-      <h1>Dari UMR<br />ke <span>Top 5%</span><br />Nasional</h1>
+      <h1>Dari UMR<br />ke <span>Top 1%</span><br />Nasional</h1>
       <div className="hero-context">
         <span className="ctx-tag work">💼 Kerja + Survey</span>
         <span className="ctx-tag study">📚 Kuliah Online</span>
