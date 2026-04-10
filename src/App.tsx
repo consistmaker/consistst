@@ -641,6 +641,7 @@ function PomodoroTimer() {
   const [mode, setMode] = useState<'work' | 'break'>('work');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ work: settings.workDuration, break: settings.breakDuration });
+  const [endTime, setEndTime] = useState<number | null>(null);
 
   // Sync timeLeft when settings change (if not active)
   useEffect(() => {
@@ -652,15 +653,34 @@ function PomodoroTimer() {
   useEffect(() => {
     let interval: any = null;
     if (isActive && timeLeft > 0) {
+      // Use Date.now() to prevent drift in background
+      const target = endTime || (Date.now() + timeLeft * 1000);
+      if (!endTime) setEndTime(target);
+
       interval = setInterval(() => {
-        setTimeLeft(t => t - 1);
+        const remaining = Math.max(0, Math.round((target - Date.now()) / 1000));
+        setTimeLeft(remaining);
+        
+        if (remaining === 0) {
+          setIsActive(false);
+          setEndTime(null);
+          handleComplete();
+          sendNotification(mode === 'work' ? 'Sesi Kerja Selesai!' : 'Istirahat Selesai!', 
+            mode === 'work' ? 'Waktunya istirahat sejenak.' : 'Waktunya kembali fokus.');
+        }
       }, 1000);
-    } else if (timeLeft === 0) {
-      setIsActive(false);
-      handleComplete();
+    } else {
+      clearInterval(interval);
+      if (!isActive) setEndTime(null);
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, mode]);
+
+  const sendNotification = (title: string, body: string) => {
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: 'https://picsum.photos/192/192?random=1' });
+    }
+  };
 
   const handleComplete = async () => {
     if (!store.user) return;
@@ -680,9 +700,15 @@ function PomodoroTimer() {
     } catch (e) { console.error(e); }
   };
 
-  const toggle = () => setIsActive(!isActive);
+  const toggle = () => {
+    if (!isActive && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    setIsActive(!isActive);
+  };
   const reset = () => {
     setIsActive(false);
+    setEndTime(null);
     setTimeLeft(mode === 'work' ? settings.workDuration * 60 : settings.breakDuration * 60);
   };
 
@@ -1759,6 +1785,7 @@ function MasterHistory() {
   
   const totalTasksDone = store.dailyStats.reduce((acc, s) => acc + (s.mainCompleted || 0) + (s.quickCompleted || 0), 0);
   const totalHabitCheckins = store.trackers.reduce((acc, t) => acc + t.history.length, 0);
+  const totalRewardsClaimed = store.rewards.filter(r => r.completed).length;
 
   return (
     <div className="sec">
@@ -1768,23 +1795,38 @@ function MasterHistory() {
       </div>
       
       <div className="card" style={{ padding: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--elang)' }}>{(totalDeepWorkMinutes / 60).toFixed(1)}h</div>
-            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Deep Work</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--elang)' }}>{(totalDeepWorkMinutes / 60).toFixed(1)}h</div>
+            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Deep Work</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--green)' }}>{totalTasksDone}</div>
-            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Tugas Selesai</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{totalTasksDone}</div>
+            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Tugas</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--gold)' }}>{totalHabitCheckins}</div>
-            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Habit Done</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--gold)' }}>{totalHabitCheckins}</div>
+            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Habits</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--singa)' }}>{totalRewardsClaimed}</div>
+            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Rewards</div>
           </div>
         </div>
         
         <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', color: 'var(--muted2)' }}>Timeline Perjalanan</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+           {/* Rewards History */}
+           {store.rewards.filter(r => r.completed).sort((a,b) => (b as any).lastCompletedDate?.localeCompare((a as any).lastCompletedDate)).slice(0, 5).map(reward => (
+             <div key={reward.id} style={{ display: 'flex', gap: '12px', borderLeft: '2px solid var(--gold)', paddingLeft: '16px', position: 'relative', paddingBottom: '8px' }}>
+               <div style={{ position: 'absolute', left: '-5px', top: '4px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gold)' }}></div>
+               <div>
+                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Reward Diklaim — {(reward as any).lastCompletedDate}</div>
+                 <div style={{ fontSize: '12px', color: 'var(--muted2)', marginTop: '4px' }}>🎁 {reward.text}</div>
+               </div>
+             </div>
+           ))}
+
            {store.weeklyReviews.sort((a,b) => parseDate(b.date).getTime() - parseDate(a.date).getTime()).map(review => (
              <div key={review.id} style={{ display: 'flex', gap: '12px', borderLeft: '2px solid var(--border)', paddingLeft: '16px', position: 'relative', paddingBottom: '8px' }}>
                <div style={{ position: 'absolute', left: '-5px', top: '4px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--elang)' }}></div>
