@@ -157,6 +157,98 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "text"]
+    },
+    "Mistake": {
+      "title": "Mistake",
+      "description": "Tracked mistakes and bad habits with penalty scores",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "description": { "type": "string" },
+        "score": { "type": "number" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "description", "score", "date"]
+    },
+    "LadderItem": {
+      "title": "LadderItem",
+      "description": "Income projection stages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "stageNum": { "type": "string" },
+        "stageName": { "type": "string" },
+        "skill": { "type": "string" },
+        "income": { "type": "string" }
+      },
+      "required": ["uid", "stageName"]
+    },
+    "PinnedAction": {
+      "title": "PinnedAction",
+      "description": "Crucial daily or weekly focus actions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["daily", "weekly"] },
+        "completed": { "type": "boolean" },
+        "lastCompletedDate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "text", "type"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Personal notes and ideas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "content": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "content"]
+    },
+    "MatrixItem": {
+      "title": "MatrixItem",
+      "description": "Covey Matrix items for prioritization",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "quadrant": { "type": "string", "enum": ["q1", "q2", "q3", "q4"] },
+        "text": { "type": "string" }
+      },
+      "required": ["uid", "quadrant", "text"]
+    },
+    "TriggerStep": {
+      "title": "TriggerStep",
+      "description": "Steps for trigger protocols",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "num": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "required": ["uid", "num", "title"]
+    },
+    "ThemeSettings": {
+      "title": "ThemeSettings",
+      "description": "User theme customization",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "fontFamily": { "type": "string" }
+      },
+      "required": ["uid"]
     }
   },
   "firestore": {
@@ -207,6 +299,34 @@
     "/rewards/{rewardId}": {
       "schema": "Reward",
       "description": "User specific customizable rewards"
+    },
+    "/mistakes/{mistakeId}": {
+      "schema": "Mistake",
+      "description": "User specific tracked mistakes"
+    },
+    "/ladder/{itemId}": {
+      "schema": "LadderItem",
+      "description": "User specific income ladder stages"
+    },
+    "/pinnedActions/{actionId}": {
+      "schema": "PinnedAction",
+      "description": "User specific pinned focus actions"
+    },
+    "/notes/{noteId}": {
+      "schema": "Note",
+      "description": "User specific personal notes"
+    },
+    "/matrixItems/{itemId}": {
+      "schema": "MatrixItem",
+      "description": "User specific Covey Matrix items"
+    },
+    "/triggerSteps/{stepId}": {
+      "schema": "TriggerStep",
+      "description": "User specific trigger protocol steps"
+    },
+    "/themeSettings/{userId}": {
+      "schema": "ThemeSettings",
+      "description": "User specific theme settings"
     }
   }
 }

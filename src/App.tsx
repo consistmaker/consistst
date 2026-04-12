@@ -9,7 +9,7 @@ import {
   Repeat, BarChart3, CheckCircle2, X, LogIn, LogOut, User as UserIcon,
   CheckSquare, Square, Play, Pause, RotateCcw, Target, Shield, ShieldOff,
   Eye, EyeOff, Timer, Edit2, Gift, Check, History, Pin, StickyNote,
-  Palette, Type, LayoutDashboard, Settings
+  Palette, Type, LayoutDashboard, Settings, AlertTriangle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -1413,10 +1413,12 @@ function IncomeLadder() {
   return (
     <div className="sec">
       <div className="sec-header">
-        <div className="sec-label">Proyeksi Income — Realistis Berbasis Sistem Ini</div>
-        <button className="btn btn-sm" onClick={() => setEditing(!editing)}>
-          {editing ? 'Batal' : <Plus size={14} />}
-        </button>
+        <div className="sec-title">
+          <span>Proyeksi Income — Realistis Berbasis Sistem Ini</span>
+          <button className="btn btn-sm" onClick={() => { setEditForm({ id: '', stageNum: '', stageName: '', skill: '', income: '' }); setEditing(!editing); }}>
+            {editing ? 'Batal' : <Plus size={14} />} {editing ? '' : 'Tambah Tahap'}
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -1776,6 +1778,108 @@ function WeeklyReview() {
   );
 }
 
+function MistakeTracker() {
+  const store = useStore();
+  const [adding, setAdding] = useState(false);
+  const [description, setDescription] = useState('');
+  const [score, setScore] = useState(50);
+
+  const handleAdd = async () => {
+    if (description.trim() && store.user) {
+      const id = Math.random().toString(36).substring(7);
+      const path = 'mistakes';
+      try {
+        await setDoc(doc(db, path, id), {
+          id,
+          uid: store.user.uid,
+          description,
+          score,
+          date: getTodayStr(),
+          createdAt: serverTimestamp()
+        });
+        setDescription('');
+        setScore(50);
+        setAdding(false);
+      } catch (e) { handleFirestoreError(e, OperationType.WRITE, path); }
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const path = 'mistakes';
+    try { await deleteDoc(doc(db, path, id)); }
+    catch (e) { handleFirestoreError(e, OperationType.DELETE, path); }
+  };
+
+  return (
+    <div className="sec">
+      <div className="sec-header">
+        <div className="sec-icon" style={{ background: '#ef444415' }}><AlertTriangle size={16} color="var(--red)" /></div>
+        <div className="sec-title">
+          <span>Mistake & Bad Habit Tracker</span>
+          <button className="btn btn-sm" onClick={() => setAdding(!adding)}>
+            {adding ? <X size={14}/> : <Plus size={14}/>} {adding ? 'Batal' : 'Catat Kesalahan'}
+          </button>
+        </div>
+      </div>
+      <AnimatePresence>
+        {adding && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card mb-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input 
+                className="input-field" 
+                style={{ marginBottom: 0 }} 
+                placeholder="Apa kesalahan/kebiasaan buruk yang dilakukan?" 
+                value={description} 
+                onChange={e => setDescription(e.target.value)} 
+              />
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
+                  <span style={{ color: 'var(--muted)' }}>Tingkat Keparahan (10-100)</span>
+                  <span style={{ fontWeight: 700, color: score > 70 ? 'var(--red)' : 'var(--text)' }}>{score}</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="10" 
+                  max="100" 
+                  step="5"
+                  value={score} 
+                  onChange={e => setScore(parseInt(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--red)' }}
+                />
+              </div>
+              <button className="btn btn-danger" onClick={handleAdd}>Simpan Kesalahan</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {store.mistakes.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map(mistake => (
+          <div key={mistake.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px' }}>
+            <div style={{ 
+              width: '32px', height: '32px', borderRadius: '8px', 
+              background: mistake.score > 70 ? '#ef444420' : '#ef444410', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--red)', fontWeight: 700, fontSize: '12px'
+            }}>
+              {mistake.score}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 600 }}>{mistake.description}</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted2)' }}>{mistake.date}</div>
+            </div>
+            <button onClick={() => handleDelete(mistake.id)} style={{ color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
+          </div>
+        ))}
+        {store.mistakes.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '12px', fontSize: '11px', color: 'var(--muted2)' }}>
+            Belum ada catatan kesalahan. Pertahankan disiplin!
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MasterHistory() {
   const store = useStore();
   
@@ -1786,6 +1890,11 @@ function MasterHistory() {
   const totalTasksDone = store.dailyStats.reduce((acc, s) => acc + (s.mainCompleted || 0) + (s.quickCompleted || 0), 0);
   const totalHabitCheckins = store.trackers.reduce((acc, t) => acc + t.history.length, 0);
   const totalRewardsClaimed = store.rewards.filter(r => r.completed).length;
+  const totalMistakes = store.mistakes.length;
+  const totalMistakeScore = store.mistakes.reduce((acc, m) => acc + m.score, 0);
+
+  const mistakesToday = store.mistakes.filter(m => m.date === getTodayStr());
+  const mistakeScoreToday = mistakesToday.reduce((acc, m) => acc + m.score, 0);
 
   return (
     <div className="sec">
@@ -1794,28 +1903,51 @@ function MasterHistory() {
         <div className="sec-title">Arsip & History Pencapaian</div>
       </div>
       
-      <div className="card" style={{ padding: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+      <div className="card" style={{ padding: '24px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '12px', background: 'var(--red)10', borderRadius: '12px', border: '1px solid var(--red)20' }}>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600, textTransform: 'uppercase' }}>Review Kesalahan Hari Ini</div>
+            <div style={{ fontSize: '14px', fontWeight: 700 }}>{mistakesToday.length} Kesalahan — Penalty: {mistakeScoreToday}</div>
+          </div>
+          <AlertTriangle size={20} color="var(--red)" />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '24px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--elang)' }}>{(totalDeepWorkMinutes / 60).toFixed(1)}h</div>
-            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Deep Work</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--elang)' }}>{(totalDeepWorkMinutes / 60).toFixed(1)}h</div>
+            <div style={{ fontSize: '8px', color: 'var(--muted)', textTransform: 'uppercase' }}>Deep Work</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{totalTasksDone}</div>
-            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Tugas</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green)' }}>{totalTasksDone}</div>
+            <div style={{ fontSize: '8px', color: 'var(--muted)', textTransform: 'uppercase' }}>Tugas</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--gold)' }}>{totalHabitCheckins}</div>
-            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Habits</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--gold)' }}>{totalHabitCheckins}</div>
+            <div style={{ fontSize: '8px', color: 'var(--muted)', textTransform: 'uppercase' }}>Habits</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--singa)' }}>{totalRewardsClaimed}</div>
-            <div style={{ fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase' }}>Rewards</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--singa)' }}>{totalRewardsClaimed}</div>
+            <div style={{ fontSize: '8px', color: 'var(--muted)', textTransform: 'uppercase' }}>Rewards</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--red)' }}>{totalMistakeScore}</div>
+            <div style={{ fontSize: '8px', color: 'var(--muted)', textTransform: 'uppercase' }}>Penalty</div>
           </div>
         </div>
         
         <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', color: 'var(--muted2)' }}>Timeline Perjalanan</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+           {/* Mistakes History */}
+           {store.mistakes.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 5).map(mistake => (
+             <div key={mistake.id} style={{ display: 'flex', gap: '12px', borderLeft: '2px solid var(--red)', paddingLeft: '16px', position: 'relative', paddingBottom: '8px' }}>
+               <div style={{ position: 'absolute', left: '-5px', top: '4px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--red)' }}></div>
+               <div>
+                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text)' }}>Kesalahan Dicatat — {mistake.date}</div>
+                 <div style={{ fontSize: '12px', color: 'var(--muted2)', marginTop: '4px' }}>⚠️ {mistake.description} (Score: {mistake.score})</div>
+               </div>
+             </div>
+           ))}
+
            {/* Rewards History */}
            {store.rewards.filter(r => r.completed).sort((a,b) => (b as any).lastCompletedDate?.localeCompare((a as any).lastCompletedDate)).slice(0, 5).map(reward => (
              <div key={reward.id} style={{ display: 'flex', gap: '12px', borderLeft: '2px solid var(--gold)', paddingLeft: '16px', position: 'relative', paddingBottom: '8px' }}>
@@ -2437,6 +2569,7 @@ export default function App() {
       store.setNotes([]);
       store.setMatrixItems([]);
       store.setTriggerSteps([]);
+      store.setMistakes([]);
       store.setLadder([]);
       store.setThemeSettings(null);
       return;
@@ -2565,6 +2698,13 @@ export default function App() {
       if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'ladder');
     });
 
+    const qMistakes = query(collection(db, 'mistakes'), where('uid', '==', user.uid));
+    const unsubMistakes = onSnapshot(qMistakes, (snap) => {
+      store.setMistakes(snap.docs.map(d => d.data() as any));
+    }, (e) => {
+      if (auth.currentUser) handleFirestoreError(e, OperationType.LIST, 'mistakes');
+    });
+
     return () => {
       unsubIntentions();
       unsubBlocks();
@@ -2583,6 +2723,7 @@ export default function App() {
       unsubMatrix();
       unsubTrigger();
       unsubLadder();
+      unsubMistakes();
     };
   }, [store.user]);
 
@@ -2655,6 +2796,7 @@ export default function App() {
                 <ImplementationIntentions />
                 <IncomeLadder />
                 <DailyAudit />
+                <MistakeTracker />
                 <QuickTasks />
                 <BlocklistManager />
               </div>

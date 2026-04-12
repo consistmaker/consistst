@@ -138,6 +138,15 @@ export interface ThemeSettings {
   fontFamily: string;
 }
 
+export interface Mistake {
+  id: string;
+  uid: string;
+  description: string;
+  score: number;
+  date: string;
+  createdAt: any;
+}
+
 interface AppState {
   user: FirebaseUser | null;
   isAuthReady: boolean;
@@ -158,6 +167,7 @@ interface AppState {
   notes: Note[];
   matrixItems: MatrixItem[];
   triggerSteps: TriggerStep[];
+  mistakes: Mistake[];
   themeSettings: ThemeSettings | null;
   isFocusMode: boolean;
 
@@ -180,6 +190,7 @@ interface AppState {
   setNotes: (notes: Note[]) => void;
   setMatrixItems: (items: MatrixItem[]) => void;
   setTriggerSteps: (steps: TriggerStep[]) => void;
+  setMistakes: (mistakes: Mistake[]) => void;
   setThemeSettings: (settings: ThemeSettings | null) => void;
   setFocusMode: (enabled: boolean) => void;
 
@@ -230,6 +241,7 @@ export const useStore = create<AppState>()(
       notes: [],
       matrixItems: [],
       triggerSteps: [],
+      mistakes: [],
       themeSettings: null,
       isFocusMode: false,
 
@@ -252,6 +264,7 @@ export const useStore = create<AppState>()(
       setNotes: (notes) => set({ notes }),
       setMatrixItems: (matrixItems) => set({ matrixItems }),
       setTriggerSteps: (triggerSteps) => set({ triggerSteps }),
+      setMistakes: (mistakes) => set({ mistakes }),
       setThemeSettings: (themeSettings) => set({ themeSettings }),
       setFocusMode: (isFocusMode) => set({ isFocusMode }),
 

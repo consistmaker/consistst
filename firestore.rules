@@ -80,6 +80,15 @@ service cloud.firestore {
     //   - mainTotal: number
     //   - quickCompleted: number
     //
+    // Collection: mistakes
+    // Document ID: {mistakeId}
+    // Fields:
+    //   - id: string
+    //   - uid: string (required)
+    //   - description: string (required)
+    //   - score: number (required)
+    //   - date: string (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -243,6 +252,17 @@ service cloud.firestore {
       allow read: if isDocOwner();
       allow create: if isRequestOwner();
       allow update: if isDocOwner() && isRequestOwner();
+      allow delete: if isDocOwner();
+    }
+
+    match /mistakes/{mistakeId} {
+      allow read: if isDocOwner();
+      allow create: if isRequestOwner() && 
+                      request.resource.data.description is string && request.resource.data.description.size() < 1000 &&
+                      request.resource.data.score is number && request.resource.data.score >= 0;
+      allow update: if isDocOwner() && isRequestOwner() &&
+                      request.resource.data.description is string && request.resource.data.description.size() < 1000 &&
+                      request.resource.data.score is number && request.resource.data.score >= 0;
       allow delete: if isDocOwner();
     }
 
